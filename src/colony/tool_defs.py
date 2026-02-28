@@ -1,0 +1,96 @@
+"""OpenAI function-calling tool definitions for colony agents."""
+from __future__ import annotations
+
+
+def build_tool_definitions(tool_profile: dict) -> list[dict]:
+    """Build OpenAI tool definitions based on agent's tool profile.
+
+    Returns a list of tool specs in the OpenAI function calling format,
+    filtered by the agent's capabilities (e.g. web_search may be disabled).
+    """
+    tools: list[dict] = []
+
+    if tool_profile.get("web_search_enabled", True):
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": "web_search",
+                    "description": (
+                        "Search the web for information. "
+                        "Results are filtered to allowed domains only."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query",
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "description": "Maximum results to return (1-10)",
+                                "default": 5,
+                            },
+                        },
+                        "required": ["query"],
+                    },
+                },
+            }
+        )
+
+    tools.append(
+        {
+            "type": "function",
+            "function": {
+                "name": "file_read",
+                "description": "Read a file from your workspace.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "relative_path": {
+                            "type": "string",
+                            "description": "Path relative to workspace root",
+                        },
+                        "max_bytes": {
+                            "type": "integer",
+                            "description": "Maximum bytes to read",
+                            "default": 32768,
+                        },
+                    },
+                    "required": ["relative_path"],
+                },
+            },
+        }
+    )
+
+    tools.append(
+        {
+            "type": "function",
+            "function": {
+                "name": "file_write",
+                "description": "Write content to a file in your workspace.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "relative_path": {
+                            "type": "string",
+                            "description": "Path relative to workspace root",
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "File content to write",
+                        },
+                        "overwrite": {
+                            "type": "boolean",
+                            "description": "Overwrite if file exists",
+                            "default": True,
+                        },
+                    },
+                    "required": ["relative_path", "content"],
+                },
+            },
+        }
+    )
+
+    return tools
