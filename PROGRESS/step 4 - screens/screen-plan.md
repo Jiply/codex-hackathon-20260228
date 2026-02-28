@@ -8,7 +8,7 @@ These screens are scoped for a 3-5 minute demo, with visual drama prioritized ov
 ## Screen List You Need
 
 1. **Genesis / Run Setup**
-2. **Colony Arena (Main Live Dashboard)**
+2. **Agent Capitalism (Main Live Dashboard)**
 3. **Agent X-Ray (Detail + Lineage)**
 4. **Control Deck (Operator Actions)**
 5. **Event Theater (Timeline Feed)**
@@ -22,7 +22,7 @@ These screens are scoped for a 3-5 minute demo, with visual drama prioritized ov
 **UI look:** Dark cinematic backdrop with one glowing colony core in center, oversized numeric inputs for `starting balance`, `quality`, `burn rate`, and `random seed`.  
 **High-dopamine moments:** Big `Start Colony` button with ignition animation; once pressed, the core "splits" into the first seed agent and transitions to live dashboard.
 
-### 2) Colony Arena (Main Live Dashboard)
+### 2) Agent Capitalism (Main Live Dashboard)
 
 **Job in demo:** This is the hero screen for 80% of the pitch. Show economic life/death in real time.  
 **UI look:** Full-width command center with:

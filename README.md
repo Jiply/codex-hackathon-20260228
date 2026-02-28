@@ -15,7 +15,7 @@ Do NOT touch any files outside of this repository.
 - Testing-only entrypoint: `src/idea-collision-guardrail/testing.ts`
 - Tests: `test/idea-collision-guardrail.test.ts`
 
-### Colony Arena (Modal + OpenAI + Vite dashboard)
+### Agent Capitalism (Modal + OpenAI + Vite dashboard)
 
 The API lives in `src/colony/main.py` and the dashboard lives in `agents/`.
 

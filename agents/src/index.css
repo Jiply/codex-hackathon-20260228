@@ -14,26 +14,26 @@
     }
 
     :root {
-        --background: 38 24% 96%;
-        --foreground: 220 15% 22%;
-        --card: 36 30% 97%;
-        --card-foreground: 220 15% 22%;
-        --popover: 36 30% 97%;
-        --popover-foreground: 220 15% 22%;
-        --primary: 154 15% 40%;
-        --primary-foreground: 38 24% 97%;
-        --secondary: 34 22% 92%;
-        --secondary-foreground: 220 11% 29%;
-        --muted: 34 20% 91%;
-        --muted-foreground: 218 10% 47%;
-        --accent: 150 22% 90%;
-        --accent-foreground: 155 21% 30%;
-        --destructive: 353 46% 68%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 35 18% 86%;
-        --input: 35 18% 86%;
-        --ring: 154 17% 43%;
-        --radius: 1.15rem;
+        --background: 36 23% 93%;
+        --foreground: 28 12% 24%;
+        --card: 36 21% 91%;
+        --card-foreground: 28 12% 24%;
+        --popover: 36 21% 91%;
+        --popover-foreground: 28 12% 24%;
+        --primary: 30 28% 42%;
+        --primary-foreground: 36 26% 94%;
+        --secondary: 34 24% 87%;
+        --secondary-foreground: 30 13% 28%;
+        --muted: 34 16% 86%;
+        --muted-foreground: 28 10% 44%;
+        --accent: 31 23% 82%;
+        --accent-foreground: 30 16% 31%;
+        --destructive: 23 23% 44%;
+        --destructive-foreground: 35 26% 93%;
+        --border: 33 14% 75%;
+        --input: 33 14% 75%;
+        --ring: 30 25% 43%;
+        --radius: 4px;
     }
 
     * {
@@ -47,9 +47,9 @@
         letter-spacing: 0.01em;
         background-color: hsl(var(--background));
         background-image:
-            radial-gradient(circle at 12% 10%, rgba(177, 191, 180, 0.14), transparent 34%),
-            radial-gradient(circle at 86% 0%, rgba(206, 190, 175, 0.18), transparent 30%),
-            linear-gradient(168deg, rgba(255, 255, 255, 0.86), rgba(248, 245, 240, 0.92));
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23695f4f' fill-opacity='0.06'%3E%3Ccircle cx='18' cy='22' r='1.1'/%3E%3Ccircle cx='72' cy='58' r='0.9'/%3E%3Ccircle cx='128' cy='30' r='1'/%3E%3Ccircle cx='44' cy='116' r='1'/%3E%3Ccircle cx='110' cy='96' r='0.95'/%3E%3Ccircle cx='146' cy='138' r='1.1'/%3E%3C/g%3E%3C/svg%3E"),
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg stroke='%235f574b' stroke-opacity='0.045' stroke-width='1'%3E%3Cpath d='M0 24h96M0 72h96M24 0v96M72 0v96'/%3E%3C/g%3E%3C/svg%3E");
+        background-size: 160px 160px, 96px 96px;
     }
 }
 
@@ -77,8 +77,208 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background-image: radial-gradient(rgba(56, 62, 69, 0.08) 0.45px, transparent 0.45px);
-        background-size: 3px 3px;
-        opacity: 0.09;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%233f3b35' fill-opacity='0.08'%3E%3Ccircle cx='12' cy='14' r='0.8'/%3E%3Ccircle cx='36' cy='28' r='0.75'/%3E%3Ccircle cx='58' cy='10' r='0.7'/%3E%3Ccircle cx='82' cy='34' r='0.8'/%3E%3Ccircle cx='106' cy='22' r='0.7'/%3E%3Ccircle cx='18' cy='68' r='0.75'/%3E%3Ccircle cx='46' cy='84' r='0.8'/%3E%3Ccircle cx='74' cy='70' r='0.7'/%3E%3Ccircle cx='98' cy='90' r='0.85'/%3E%3C/g%3E%3C/svg%3E");
+        background-size: 120px 120px;
+        opacity: 0.15;
     }
+
+    .react-flow__pane {
+        background-color: hsl(var(--background) / 0.45);
+    }
+
+    .react-flow {
+        --xy-background-color: hsl(var(--background) / 0.45);
+        --xy-node-background-color: hsl(var(--background) / 0.82);
+        --xy-node-border: none;
+        --xy-node-color: hsl(var(--foreground) / 0.92);
+        --xy-node-boxshadow-hover: none;
+        --xy-node-boxshadow-selected: 0 0 0 1px hsl(var(--ring) / 0.45);
+        --xy-edge-stroke: hsl(var(--border) / 0.95);
+        --xy-edge-stroke-selected: hsl(var(--primary) / 0.8);
+        --xy-handle-background-color: hsl(var(--secondary-foreground) / 0.58);
+        --xy-handle-border-color: hsl(var(--background));
+        --xy-selection-background-color: hsl(var(--secondary) / 0.28);
+        --xy-selection-border: 1px solid hsl(var(--border) / 0.95);
+        --xy-controls-button-background-color: hsl(var(--background) / 0.92);
+        --xy-controls-button-background-color-hover: hsl(var(--secondary) / 0.74);
+        --xy-controls-button-color: hsl(var(--foreground) / 0.82);
+        --xy-controls-button-color-hover: hsl(var(--foreground) / 0.9);
+        --xy-controls-button-border-color: hsl(var(--border) / 0.7);
+        --xy-controls-box-shadow: none;
+    }
+
+    .react-flow__controls {
+        box-shadow: none;
+        border: 1px solid hsl(var(--border) / 0.8);
+        border-radius: 4px;
+        overflow: hidden;
+        background-color: hsl(var(--background) / 0.9);
+    }
+
+    .react-flow__controls button {
+        background: transparent;
+        border-bottom: 1px solid hsl(var(--border) / 0.65);
+        color: hsl(var(--foreground) / 0.8);
+    }
+
+    .react-flow__controls button:last-child {
+        border-bottom: none;
+    }
+
+    .react-flow__controls button:hover {
+        background: hsl(var(--secondary) / 0.7);
+    }
+
+    .react-flow__controls button svg {
+        fill: hsl(var(--foreground) / 0.78);
+    }
+
+    .react-flow__node {
+        border-radius: 4px;
+    }
+
+    .react-flow .react-flow__node-default,
+    .react-flow .react-flow__node-input,
+    .react-flow .react-flow__node-output,
+    .react-flow .react-flow__node-group {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        width: auto !important;
+    }
+
+    .react-flow__edge-path,
+    .react-flow__arrowhead polyline,
+    .react-flow__arrowhead polyline.arrowclosed {
+        transition: stroke 140ms ease, fill 140ms ease;
+    }
+}
+
+@keyframes dialog-overlay-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes dialog-overlay-out {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes dialog-content-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -48%) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes dialog-content-out {
+    from {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translate(-50%, -48%) scale(0.985);
+    }
+}
+
+@keyframes node-activity-pulse {
+    0% {
+        box-shadow: 0 0 0 0 hsl(var(--ring) / 0.44);
+    }
+    70% {
+        box-shadow: 0 0 0 9px hsl(var(--ring) / 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 hsl(var(--ring) / 0);
+    }
+}
+
+@keyframes backend-dot-pulse {
+    0%,
+    100% {
+        opacity: 0.68;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.28);
+    }
+}
+
+.agent-node-shell {
+    border: 1px solid hsl(var(--border) / 0.62);
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.agent-node-shell--pulse {
+    animation: node-activity-pulse 1.6s ease-out 1;
+}
+
+.agent-node-shell--spawn {
+    border-color: hsl(var(--primary) / 0.68);
+}
+
+.agent-node-shell--tick {
+    border-color: hsl(var(--ring) / 0.7);
+}
+
+.agent-node-shell--credit {
+    border-color: hsl(var(--primary) / 0.78);
+}
+
+.agent-node-shell--replicate {
+    border-color: hsl(var(--accent-foreground) / 0.58);
+}
+
+.agent-node-shell--hide {
+    border-color: hsl(var(--muted-foreground) / 0.7);
+}
+
+.agent-node-shell--kill {
+    border-color: hsl(var(--destructive) / 0.84);
+}
+
+.agent-node-shell--event {
+    border-color: hsl(var(--ring) / 0.52);
+}
+
+.backend-health-dot {
+    display: block;
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    background: hsl(var(--muted-foreground) / 0.58);
+    box-shadow: 0 0 0 1px hsl(var(--border) / 0.9);
+}
+
+.backend-health-dot--online {
+    background: hsl(var(--primary) / 0.88);
+}
+
+.backend-health-dot--checking {
+    background: hsl(var(--primary) / 0.72);
+    animation: backend-dot-pulse 1.05s ease-in-out infinite;
+}
+
+.backend-health-dot--offline {
+    background: hsl(var(--destructive) / 0.82);
+    animation: backend-dot-pulse 1.05s ease-in-out infinite;
+}
+
+.backend-health-dot--mock {
+    opacity: 0.76;
 }

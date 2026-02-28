@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+import random
 import time
 import uuid
 from pathlib import Path
@@ -105,6 +107,137 @@ events_store = EventLog(_store_root / "events.jsonl")
 meta_store = JsonlStore(_store_root / "meta.jsonl")
 balance_visibility_store = JsonlStore(_store_root / "balance_visibility.jsonl")
 
+_FALLBACK_AGENT_IDS = (
+    "ag-00-seed",
+    "ag-01-scout",
+    "ag-02-market",
+    "ag-03-scrubber",
+    "ag-04-atlas",
+    "ag-05-ember",
+    "ag-06-orbit",
+    "ag-07-quant",
+    "ag-08-lattice",
+    "ag-09-reef",
+    "ag-10-drift",
+    "ag-11-hush",
+    "ag-12-pulse",
+    "ag-13-sable",
+    "ag-14-forge",
+    "ag-15-kite",
+    "ag-16-nova",
+    "ag-17-veil",
+    "ag-18-cinder",
+    "ag-19-rune",
+    "ag-20-vault",
+    "ag-21-ash",
+    "ag-22-bloom",
+    "ag-23-ion",
+    "ag-24-mica",
+    "ag-25-glint",
+    "ag-26-warden",
+    "ag-27-silt",
+    "ag-28-prism",
+    "ag-29-kelp",
+    "ag-30-gale",
+    "ag-31-fable",
+    "ag-32-shard",
+    "ag-33-rivet",
+    "ag-34-tide",
+    "ag-35-zenith",
+)
+_TOOL_NAMES = ("web_search", "file_read", "file_write")
+_MODAL_APPS = (
+    "mortal-replicator-api",
+    "mortal-replicator-supervisor",
+    "mortal-replicator-tools",
+)
+_LOG_PROFILES: tuple[dict[str, Any], ...] = (
+    {
+        "channel": "TOOL",
+        "action": "TOOL_CALL_EXECUTED",
+        "severities": ("INFO", "SUCCESS"),
+        "summary": "{agent_id} executed {tool} against workspace mirror.",
+        "details": "latency={duration_ms}ms hash={hash} file={workspace_file}",
+        "include_tool": True,
+        "include_duration": True,
+    },
+    {
+        "channel": "TOOL",
+        "action": "TOOL_CALL_DENIED",
+        "severities": ("WARN", "ERROR"),
+        "summary": "{agent_id} attempted unauthorized tool route ({tool}).",
+        "details": "policy=allowlist reason=domain_guardrail hash={hash}",
+        "include_tool": True,
+    },
+    {
+        "channel": "AGENT",
+        "action": "TASK_CREDIT_APPLIED",
+        "severities": ("INFO", "SUCCESS"),
+        "summary": "{agent_id} captured +{delta} revenue credit from async task.",
+        "details": "quality={quality} rent_risk={risk}% hash={hash}",
+    },
+    {
+        "channel": "AGENT",
+        "action": "LEASE_RISK_ESCALATED",
+        "severities": ("WARN",),
+        "summary": "{agent_id} flagged for lease pressure during supervisor sweep.",
+        "details": "risk={risk}% balance_probe=partial hash={hash}",
+    },
+    {
+        "channel": "AGENT",
+        "action": "AGENT_TERMINATED",
+        "severities": ("ERROR",),
+        "summary": "{agent_id} terminated after repeated insolvency threshold breach.",
+        "details": "reason=KILLED_INSOLVENCY residual_margin=-{delta} hash={hash}",
+    },
+    {
+        "channel": "MODAL",
+        "action": "MODAL_CONTAINER_WARMED",
+        "severities": ("INFO", "SUCCESS"),
+        "summary": "Modal app {modal_app} warmed a worker for colony traffic.",
+        "details": "cold_start_ms={duration_ms} queue_depth={queue_depth}",
+        "include_modal": True,
+        "include_duration": True,
+    },
+    {
+        "channel": "MODAL",
+        "action": "VOLUME_SYNC_COMMITTED",
+        "severities": ("INFO",),
+        "summary": "{modal_app} committed workspace volume checkpoint.",
+        "details": "agent={agent_id} bytes={byte_count} hash={hash}",
+        "include_modal": True,
+    },
+    {
+        "channel": "SUPERVISOR",
+        "action": "SUPERVISOR_TICK_COMPLETE",
+        "severities": ("INFO", "SUCCESS"),
+        "summary": "Supervisor tick completed for {agent_count} active agents.",
+        "details": "charged={charged} killed={killed} hash={hash}",
+    },
+    {
+        "channel": "SUPERVISOR",
+        "action": "WATCHLIST_REBALANCE",
+        "severities": ("WARN",),
+        "summary": "Supervisor rebalanced watchlist after high-risk lease probe.",
+        "details": "watchlist={watchlist_count} risk={risk}% hash={hash}",
+    },
+    {
+        "channel": "SYSTEM",
+        "action": "API_HEALTH_PULSE",
+        "severities": ("INFO",),
+        "summary": "API heartbeat confirmed from {modal_app}.",
+        "details": "service_version={service_version} queue_depth={queue_depth}",
+        "include_modal": True,
+    },
+    {
+        "channel": "SYSTEM",
+        "action": "CONFIG_GUARDRAIL_UPDATED",
+        "severities": ("INFO", "WARN"),
+        "summary": "Runtime guardrail profile refreshed for {agent_count} agents.",
+        "details": "domains={domain_count} rate_limit={rate_limit}/min hash={hash}",
+    },
+)
+
 web_app = FastAPI(title="Mortal Replicator Colony API", version=APP_VERSION)
 web_app.add_middleware(
     CORSMiddleware,
@@ -168,6 +301,109 @@ def _set_balance_hidden(agent_id: str, enabled: bool) -> bool:
     value = bool(enabled)
     balance_visibility_store[_balance_visibility_key(agent_id)] = value
     return value
+
+
+def _parse_logs_cursor(cursor: str | None) -> tuple[int, int]:
+    if not cursor:
+        return int(time.time() * 1000), 0
+    try:
+        anchor_raw, offset_raw = cursor.split(":", maxsplit=1)
+        anchor_ms = int(anchor_raw)
+        offset = int(offset_raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid cursor format") from exc
+    if anchor_ms <= 0 or offset < 0:
+        raise HTTPException(status_code=400, detail="Invalid cursor value")
+    return anchor_ms, offset
+
+
+def _sidebar_agent_ids(limit: int = 36) -> list[str]:
+    ids: list[str] = []
+    for key, value in agents_store.items():
+        if isinstance(key, str) and isinstance(value, dict):
+            ids.append(key)
+    if ids:
+        ids.sort()
+        return ids[:limit]
+    return list(_FALLBACK_AGENT_IDS[:limit])
+
+
+def _sidebar_log_timestamp(anchor_ms: int, position: int, rng: random.Random) -> str:
+    seconds_back = (position * 9) + rng.randint(0, 6)
+    ts = datetime.fromtimestamp(
+        max((anchor_ms / 1000.0) - seconds_back, 0),
+        tz=timezone.utc,
+    )
+    return ts.isoformat().replace("+00:00", "Z")
+
+
+def _generate_sidebar_log(
+    anchor_ms: int, position: int, agent_ids: list[str]
+) -> dict[str, Any]:
+    rng = random.Random(f"{anchor_ms}:{position}")
+    profile = rng.choice(_LOG_PROFILES)
+
+    channel = str(profile["channel"])
+    action = str(profile["action"])
+    severities = profile.get("severities") or ("INFO",)
+    severity = str(rng.choice(tuple(severities)))
+
+    agent_id = rng.choice(agent_ids)
+    tool = rng.choice(_TOOL_NAMES) if profile.get("include_tool") else None
+    modal_app = rng.choice(_MODAL_APPS) if profile.get("include_modal") else None
+    duration_ms = rng.randint(28, 980) if profile.get("include_duration") else None
+
+    context = {
+        "agent_id": agent_id,
+        "tool": tool or rng.choice(_TOOL_NAMES),
+        "modal_app": modal_app or rng.choice(_MODAL_APPS),
+        "duration_ms": duration_ms if duration_ms is not None else rng.randint(40, 840),
+        "hash": short_hash(
+            {
+                "anchor_ms": anchor_ms,
+                "position": position,
+                "channel": channel,
+                "action": action,
+            }
+        ),
+        "workspace_file": rng.choice(
+            (
+                "workspace/README.txt",
+                "workspace/state.json",
+                "workspace/notes/todo.md",
+                "workspace/logs/trace.ndjson",
+            )
+        ),
+        "delta": f"{rng.uniform(0.08, 1.62):.2f}",
+        "quality": f"{rng.uniform(0.41, 0.99):.2f}",
+        "risk": rng.randint(8, 97),
+        "queue_depth": rng.randint(1, 24),
+        "byte_count": rng.randint(1024, 65536),
+        "agent_count": max(len(agent_ids), 1),
+        "charged": rng.randint(0, max(len(agent_ids) // 2, 1)),
+        "killed": rng.randint(0, 3),
+        "watchlist_count": rng.randint(0, max(len(agent_ids) // 3, 1)),
+        "domain_count": rng.randint(2, 9),
+        "rate_limit": rng.choice((20, 30, 40, 60)),
+        "service_version": APP_VERSION,
+    }
+
+    summary = str(profile["summary"]).format(**context)
+    details = str(profile["details"]).format(**context)
+
+    return {
+        "id": f"log-{anchor_ms}-{position:06d}",
+        "ts": _sidebar_log_timestamp(anchor_ms, position, rng),
+        "channel": channel,
+        "severity": severity,
+        "action": action,
+        "summary": summary,
+        "details": details,
+        "agentId": agent_id,
+        "tool": tool,
+        "modalApp": modal_app,
+        "durationMs": duration_ms,
+    }
 
 
 def _get_agent_or_404(agent_id: str) -> AgentRecord:
@@ -919,6 +1155,25 @@ async def colony_events(
             all_events.append(value)
     all_events.sort(key=lambda item: item.get("seq", 0), reverse=True)
     return {"events": all_events[:limit], "count": min(len(all_events), limit)}
+
+
+@web_app.get("/colony/logs")
+async def colony_logs(
+    limit: int = Query(default=56, ge=8, le=120),
+    cursor: str | None = Query(default=None),
+) -> dict[str, Any]:
+    anchor_ms, offset = _parse_logs_cursor(cursor)
+    agent_ids = _sidebar_agent_ids()
+    logs = [
+        _generate_sidebar_log(anchor_ms, offset + i, agent_ids)
+        for i in range(limit)
+    ]
+    next_cursor = f"{anchor_ms}:{offset + len(logs)}"
+    return {
+        "logs": logs,
+        "count": len(logs),
+        "next_cursor": next_cursor,
+    }
 
 
 @app.function(

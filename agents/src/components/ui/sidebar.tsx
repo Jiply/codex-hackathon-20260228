@@ -101,7 +101,7 @@ function SidebarMenuItem({ className, ...props }: React.HTMLAttributes<HTMLLIEle
 }
 
 const sidebarMenuButtonVariants = cva(
-  "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left text-[10px] uppercase tracking-[0.16em] text-muted-foreground transition-colors",
+  "flex w-full items-center gap-2 rounded-sm border border-transparent px-2 py-2 text-left text-[10px] uppercase tracking-[0.16em] text-muted-foreground transition-colors",
   {
     variants: {
       active: {

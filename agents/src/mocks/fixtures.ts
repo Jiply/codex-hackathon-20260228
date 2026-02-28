@@ -1,0 +1,95 @@
+import type {
+  AgentRecord,
+  ColonyEvent,
+  LedgerRecord,
+  SidebarLogChannel,
+  SidebarLogSeverity,
+} from "@/mocks/contracts";
+
+export const SNAPSHOT_AGENTS: AgentRecord[] = [
+  { agent_id: "ag-00-seed", parent_id: null, status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.93 },
+  { agent_id: "ag-01-scout", parent_id: "ag-00-seed", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.86 },
+  { agent_id: "ag-02-market", parent_id: "ag-00-seed", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.89 },
+  { agent_id: "ag-03-scrubber", parent_id: "ag-00-seed", status: "FLAGGED", healthy: false, hide_balance: true, quality_rolling: 0.37 },
+  { agent_id: "ag-04-atlas", parent_id: "ag-01-scout", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.79 },
+  { agent_id: "ag-05-ember", parent_id: "ag-01-scout", status: "FLAGGED", healthy: false, hide_balance: false, quality_rolling: 0.34 },
+  { agent_id: "ag-06-orbit", parent_id: "ag-01-scout", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.74 },
+  { agent_id: "ag-07-quant", parent_id: "ag-02-market", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.82 },
+  { agent_id: "ag-08-lattice", parent_id: "ag-02-market", status: "SPAWNED", healthy: true, hide_balance: false, quality_rolling: 0.67 },
+  { agent_id: "ag-09-reef", parent_id: "ag-02-market", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.77 },
+  { agent_id: "ag-10-drift", parent_id: "ag-03-scrubber", status: "KILLED", healthy: false, hide_balance: true, quality_rolling: 0.22 },
+  { agent_id: "ag-11-hush", parent_id: "ag-03-scrubber", status: "KILLED", healthy: false, hide_balance: false, quality_rolling: 0.19 },
+  { agent_id: "ag-12-pulse", parent_id: "ag-04-atlas", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.75 },
+  { agent_id: "ag-13-sable", parent_id: "ag-04-atlas", status: "FLAGGED", healthy: false, hide_balance: false, quality_rolling: 0.33 },
+  { agent_id: "ag-14-forge", parent_id: "ag-06-orbit", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.81 },
+  { agent_id: "ag-15-kite", parent_id: "ag-06-orbit", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.72 },
+  { agent_id: "ag-16-nova", parent_id: "ag-07-quant", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.84 },
+  { agent_id: "ag-17-veil", parent_id: "ag-07-quant", status: "KILLED", healthy: false, hide_balance: false, quality_rolling: 0.28 },
+  { agent_id: "ag-18-cinder", parent_id: "ag-09-reef", status: "SPAWNED", healthy: true, hide_balance: false, quality_rolling: 0.64 },
+  { agent_id: "ag-19-rune", parent_id: "ag-09-reef", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.78 },
+  { agent_id: "ag-20-vault", parent_id: "ag-14-forge", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.8 },
+  { agent_id: "ag-21-ash", parent_id: "ag-14-forge", status: "FLAGGED", healthy: false, hide_balance: false, quality_rolling: 0.31 },
+  { agent_id: "ag-22-bloom", parent_id: "ag-20-vault", status: "ACTIVE", healthy: true, hide_balance: false, quality_rolling: 0.73 },
+  { agent_id: "ag-23-ion", parent_id: "ag-20-vault", status: "KILLED", healthy: false, hide_balance: true, quality_rolling: 0.24 },
+];
+
+export const SNAPSHOT_LEDGER: LedgerRecord[] = [
+  { agent_id: "ag-00-seed", balance: 6.42, net_margin_24h: 1.43, rent_per_tick: 0.28 },
+  { agent_id: "ag-01-scout", balance: 4.18, net_margin_24h: 0.92, rent_per_tick: 0.22 },
+  { agent_id: "ag-02-market", balance: 4.94, net_margin_24h: 1.08, rent_per_tick: 0.24 },
+  { agent_id: "ag-03-scrubber", balance: 1.02, net_margin_24h: -0.58, rent_per_tick: 0.3 },
+  { agent_id: "ag-04-atlas", balance: 3.11, net_margin_24h: 0.57, rent_per_tick: 0.18 },
+  { agent_id: "ag-05-ember", balance: 0.73, net_margin_24h: -0.49, rent_per_tick: 0.19 },
+  { agent_id: "ag-06-orbit", balance: 2.88, net_margin_24h: 0.35, rent_per_tick: 0.16 },
+  { agent_id: "ag-07-quant", balance: 3.24, net_margin_24h: 0.74, rent_per_tick: 0.17 },
+  { agent_id: "ag-08-lattice", balance: 1.54, net_margin_24h: 0.11, rent_per_tick: 0.14 },
+  { agent_id: "ag-09-reef", balance: 2.63, net_margin_24h: 0.41, rent_per_tick: 0.16 },
+  { agent_id: "ag-10-drift", balance: -0.04, net_margin_24h: -0.83, rent_per_tick: 0.18 },
+  { agent_id: "ag-11-hush", balance: -0.09, net_margin_24h: -0.79, rent_per_tick: 0.2 },
+  { agent_id: "ag-12-pulse", balance: 2.12, net_margin_24h: 0.46, rent_per_tick: 0.14 },
+  { agent_id: "ag-13-sable", balance: 0.62, net_margin_24h: -0.36, rent_per_tick: 0.16 },
+  { agent_id: "ag-14-forge", balance: 2.95, net_margin_24h: 0.67, rent_per_tick: 0.15 },
+  { agent_id: "ag-15-kite", balance: 2.17, net_margin_24h: 0.28, rent_per_tick: 0.13 },
+  { agent_id: "ag-16-nova", balance: 3.38, net_margin_24h: 0.89, rent_per_tick: 0.14 },
+  { agent_id: "ag-17-veil", balance: 0.06, net_margin_24h: -0.68, rent_per_tick: 0.15 },
+  { agent_id: "ag-18-cinder", balance: 1.21, net_margin_24h: 0.05, rent_per_tick: 0.12 },
+  { agent_id: "ag-19-rune", balance: 2.56, net_margin_24h: 0.43, rent_per_tick: 0.14 },
+  { agent_id: "ag-20-vault", balance: 2.79, net_margin_24h: 0.52, rent_per_tick: 0.13 },
+  { agent_id: "ag-21-ash", balance: 0.58, net_margin_24h: -0.39, rent_per_tick: 0.16 },
+  { agent_id: "ag-22-bloom", balance: 1.87, net_margin_24h: 0.26, rent_per_tick: 0.12 },
+  { agent_id: "ag-23-ion", balance: -0.02, net_margin_24h: -0.62, rent_per_tick: 0.14 },
+];
+
+export const SNAPSHOT_EVENTS: ColonyEvent[] = [
+  { seq: 2482, type: "SUPERVISOR_TICK", agent_id: null, ts: "2026-02-28T08:08:41Z", payload: { checked: 24, killed: 0 } },
+  { seq: 2481, type: "TASK_CREDITED", agent_id: "ag-16-nova", ts: "2026-02-28T08:08:19Z", payload: { revenue_credit: 0.98 } },
+  { seq: 2480, type: "TASK_CREDITED", agent_id: "ag-20-vault", ts: "2026-02-28T08:08:11Z", payload: { revenue_credit: 0.74 } },
+  { seq: 2479, type: "LEASE_CHARGED", agent_id: "ag-03-scrubber", ts: "2026-02-28T08:07:58Z", payload: { rent: 0.3 } },
+  { seq: 2478, type: "BALANCE_VISIBILITY_TOGGLED", agent_id: "ag-03-scrubber", ts: "2026-02-28T08:07:49Z", payload: { hide_balance: true } },
+  { seq: 2477, type: "AGENT_SPAWNED", agent_id: "ag-22-bloom", ts: "2026-02-28T08:07:15Z", payload: { parent_id: "ag-20-vault" } },
+  { seq: 2476, type: "SUPERVISOR_TICK", agent_id: null, ts: "2026-02-28T08:06:59Z", payload: { checked: 24, killed: 1 } },
+  { seq: 2475, type: "AGENT_KILLED", agent_id: "ag-23-ion", ts: "2026-02-28T08:06:58Z", payload: { reason: "LEASE_FAIL_STREAK" } },
+  { seq: 2474, type: "TASK_CREDITED", agent_id: "ag-14-forge", ts: "2026-02-28T08:06:44Z", payload: { revenue_credit: 0.91 } },
+  { seq: 2473, type: "TASK_CREDITED", agent_id: "ag-01-scout", ts: "2026-02-28T08:06:39Z", payload: { revenue_credit: 0.65 } },
+  { seq: 2472, type: "SUPERVISOR_TICK", agent_id: null, ts: "2026-02-28T08:06:13Z", payload: { checked: 23, killed: 0 } },
+  { seq: 2471, type: "AGENT_SPAWNED", agent_id: "ag-20-vault", ts: "2026-02-28T08:05:58Z", payload: { parent_id: "ag-14-forge" } },
+  { seq: 2470, type: "TASK_CREDITED", agent_id: "ag-19-rune", ts: "2026-02-28T08:05:42Z", payload: { revenue_credit: 0.72 } },
+  { seq: 2469, type: "TASK_CREDITED", agent_id: "ag-04-atlas", ts: "2026-02-28T08:05:19Z", payload: { revenue_credit: 0.61 } },
+  { seq: 2468, type: "AGENT_KILLED", agent_id: "ag-17-veil", ts: "2026-02-28T08:05:02Z", payload: { reason: "NEG_MARGIN_TIMEOUT" } },
+  { seq: 2467, type: "SUPERVISOR_TICK", agent_id: null, ts: "2026-02-28T08:04:51Z", payload: { checked: 22, killed: 1 } },
+  { seq: 2466, type: "AGENT_SPAWNED", agent_id: "ag-18-cinder", ts: "2026-02-28T08:04:26Z", payload: { parent_id: "ag-09-reef" } },
+  { seq: 2465, type: "TASK_CREDITED", agent_id: "ag-07-quant", ts: "2026-02-28T08:04:11Z", payload: { revenue_credit: 0.88 } },
+  { seq: 2464, type: "SUPERVISOR_TICK", agent_id: null, ts: "2026-02-28T08:03:44Z", payload: { checked: 21, killed: 0 } },
+  { seq: 2463, type: "AGENT_KILLED", agent_id: "ag-11-hush", ts: "2026-02-28T08:03:31Z", payload: { reason: "LEASE_FAIL_STREAK" } },
+  { seq: 2462, type: "TASK_CREDITED", agent_id: "ag-02-market", ts: "2026-02-28T08:03:07Z", payload: { revenue_credit: 1.14 } },
+  { seq: 2461, type: "AGENT_SPAWNED", agent_id: "ag-16-nova", ts: "2026-02-28T08:02:53Z", payload: { parent_id: "ag-07-quant" } },
+  { seq: 2460, type: "SUPERVISOR_TICK", agent_id: null, ts: "2026-02-28T08:02:40Z", payload: { checked: 20, killed: 1 } },
+  { seq: 2459, type: "AGENT_KILLED", agent_id: "ag-10-drift", ts: "2026-02-28T08:02:27Z", payload: { reason: "NEG_MARGIN_TIMEOUT" } },
+];
+
+export const SIDEBAR_LOG_FALLBACK_AGENT_IDS = ["ag-00-seed", "ag-01-scout", "ag-02-market", "ag-03-scrubber", "ag-04-atlas"] as const;
+export const SIDEBAR_LOG_FALLBACK_TOOLS = ["web_search", "file_read", "file_write"] as const;
+export const SIDEBAR_LOG_FALLBACK_MODAL_APPS = ["mortal-replicator-api", "mortal-replicator-supervisor", "mortal-replicator-tools"] as const;
+export const SIDEBAR_LOG_FALLBACK_CHANNELS: SidebarLogChannel[] = ["TOOL", "AGENT", "MODAL", "SUPERVISOR", "SYSTEM"];
+export const SIDEBAR_LOG_FALLBACK_SEVERITIES: SidebarLogSeverity[] = ["INFO", "SUCCESS", "WARN", "ERROR"];
+export const SNAPSHOT_LOG_ANCHOR_MS = Date.parse("2026-02-28T08:08:41Z");
