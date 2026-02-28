@@ -23,6 +23,13 @@ try:
         LLM_MAX_OUTPUT_TOKENS,
         LLM_MODEL,
         LOW_QUALITY_THRESHOLD,
+        MARKET_MAX_OPEN_LISTINGS,
+        MARKET_LISTING_TTL_TICKS,
+        MARKET_OBSERVATION_NOISE,
+        MARKET_SEED,
+        MARKET_SKILL_MISS_COST_MULTIPLIER,
+        MARKET_TASKS_PER_TICK,
+        MARKET_TOOL_MISS_PENALTY,
         OPENAI_API_KEY,
         OPENAI_SECRET_NAME,
         QUALITY_FLOOR,
@@ -34,12 +41,25 @@ try:
         build_image,
     )
     from colony.dashboard import render_dashboard_html
+    from colony.estimation import (
+        default_estimation_memory,
+        estimate_task_from_description,
+        update_estimation_memory,
+    )
     from colony.llm import run_agent_task_plan
+    from colony.market import (
+        DEFAULT_KNOWLEDGE_AREAS,
+        TaskMarket,
+        MarketConfig,
+    )
     from colony.schemas import (
         AgentLLMTaskRequest,
         AgentRecord,
         KillRequest,
         LedgerRecord,
+        MarketProfileUpdateRequest,
+        MarketTaskAttemptRequest,
+        MarketTickRequest,
         ReplicateRequest,
         SpawnRequest,
         TaskCreditRequest,
@@ -66,6 +86,13 @@ except ModuleNotFoundError:
         LLM_MAX_OUTPUT_TOKENS,
         LLM_MODEL,
         LOW_QUALITY_THRESHOLD,
+        MARKET_MAX_OPEN_LISTINGS,
+        MARKET_LISTING_TTL_TICKS,
+        MARKET_OBSERVATION_NOISE,
+        MARKET_SEED,
+        MARKET_SKILL_MISS_COST_MULTIPLIER,
+        MARKET_TASKS_PER_TICK,
+        MARKET_TOOL_MISS_PENALTY,
         OPENAI_API_KEY,
         OPENAI_SECRET_NAME,
         QUALITY_FLOOR,
@@ -77,12 +104,21 @@ except ModuleNotFoundError:
         build_image,
     )
     from dashboard import render_dashboard_html
+    from estimation import (
+        default_estimation_memory,
+        estimate_task_from_description,
+        update_estimation_memory,
+    )
     from llm import run_agent_task_plan
+    from market import DEFAULT_KNOWLEDGE_AREAS, MarketConfig, TaskMarket
     from schemas import (
         AgentLLMTaskRequest,
         AgentRecord,
         KillRequest,
         LedgerRecord,
+        MarketProfileUpdateRequest,
+        MarketTaskAttemptRequest,
+        MarketTickRequest,
         ReplicateRequest,
         SpawnRequest,
         TaskCreditRequest,
@@ -104,6 +140,23 @@ ledger_store = JsonlStore(_store_root / "ledger.jsonl")
 events_store = EventLog(_store_root / "events.jsonl")
 meta_store = JsonlStore(_store_root / "meta.jsonl")
 balance_visibility_store = JsonlStore(_store_root / "balance_visibility.jsonl")
+market_listings_store = JsonlStore(_store_root / "market_listings.jsonl")
+market_profiles_store = JsonlStore(_store_root / "market_profiles.jsonl")
+market_memory_store = JsonlStore(_store_root / "market_memory.jsonl")
+market_estimate_store = JsonlStore(_store_root / "market_estimates.jsonl")
+task_market = TaskMarket(
+    listing_store=market_listings_store,
+    meta_store=meta_store,
+    config=MarketConfig(
+        seed=MARKET_SEED,
+        tasks_per_tick=MARKET_TASKS_PER_TICK,
+        max_open_listings=MARKET_MAX_OPEN_LISTINGS,
+        listing_ttl_ticks=MARKET_LISTING_TTL_TICKS,
+        observation_noise=MARKET_OBSERVATION_NOISE,
+        tool_miss_penalty=MARKET_TOOL_MISS_PENALTY,
+        skill_miss_cost_multiplier=MARKET_SKILL_MISS_COST_MULTIPLIER,
+    ),
+)
 
 web_app = FastAPI(title="Mortal Replicator Colony API", version=APP_VERSION)
 web_app.add_middleware(
@@ -196,6 +249,114 @@ def _save_ledger(agent_id: str, ledger: LedgerRecord) -> None:
     ledger_store[agent_id] = ledger.model_dump()
 
 
+def _default_market_tools(agent: AgentRecord) -> list[str]:
+    tools: set[str] = {"file_read", "file_write"}
+    if agent.tool_profile.web_search_enabled:
+        tools.add("web_search")
+    return sorted(tools)
+
+
+def _normalize_market_knowledge(raw: dict[str, Any] | None) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for area in DEFAULT_KNOWLEDGE_AREAS:
+        value = 0.5
+        if isinstance(raw, dict):
+            candidate = raw.get(area, 0.5)
+            try:
+                value = float(candidate)
+            except Exception:
+                value = 0.5
+        out[area] = round(max(0.0, min(1.0, value)), 4)
+    return out
+
+
+def _save_market_profile(
+    agent_id: str,
+    *,
+    tools: list[str] | None,
+    knowledge: dict[str, Any] | None,
+) -> dict[str, Any]:
+    normalized_tools = sorted(
+        {
+            str(tool).strip()
+            for tool in (tools or [])
+            if isinstance(tool, str) and tool.strip()
+        }
+    )
+    if not normalized_tools:
+        normalized_tools = ["file_read", "file_write"]
+    profile = {
+        "agent_id": agent_id,
+        "tools": normalized_tools,
+        "knowledge": _normalize_market_knowledge(knowledge),
+        "updated_at": utc_now_iso(),
+    }
+    market_profiles_store[agent_id] = profile
+    return profile
+
+
+def _get_market_profile(agent: AgentRecord) -> dict[str, Any]:
+    raw = market_profiles_store.get(agent.agent_id)
+    if isinstance(raw, dict):
+        tools = raw.get("tools")
+        knowledge = raw.get("knowledge")
+        if isinstance(tools, list) and isinstance(knowledge, dict):
+            return {
+                "agent_id": agent.agent_id,
+                "tools": sorted(
+                    {
+                        str(tool).strip()
+                        for tool in tools
+                        if isinstance(tool, str) and tool.strip()
+                    }
+                ),
+                "knowledge": _normalize_market_knowledge(knowledge),
+                "updated_at": raw.get("updated_at"),
+            }
+    return _save_market_profile(
+        agent.agent_id,
+        tools=_default_market_tools(agent),
+        knowledge=None,
+    )
+
+
+def _get_estimation_memory(agent_id: str) -> dict[str, Any]:
+    raw = market_memory_store.get(agent_id)
+    if not isinstance(raw, dict):
+        memory = default_estimation_memory()
+        memory["last_updated"] = utc_now_iso()
+        market_memory_store[agent_id] = memory
+        return memory
+    memory = default_estimation_memory()
+    memory.update(raw)
+    return memory
+
+
+def _save_estimation_memory(agent_id: str, memory: dict[str, Any]) -> dict[str, Any]:
+    normalized = default_estimation_memory()
+    normalized.update(memory)
+    market_memory_store[agent_id] = normalized
+    return normalized
+
+
+def _estimate_cache_key(agent_id: str, listing_id: str) -> str:
+    return f"{agent_id}:{listing_id}"
+
+
+def _save_cached_estimate(agent_id: str, listing_id: str, estimate: dict[str, Any]) -> None:
+    market_estimate_store[_estimate_cache_key(agent_id, listing_id)] = {
+        "agent_id": agent_id,
+        "listing_id": listing_id,
+        "estimate": estimate,
+        "created_at": utc_now_iso(),
+    }
+
+
+def _get_cached_estimate(agent_id: str, listing_id: str) -> dict[str, Any] | None:
+    raw = market_estimate_store.get(_estimate_cache_key(agent_id, listing_id))
+    return raw if isinstance(raw, dict) else None
+
+
 def _kill_agent(agent_id: str, reason: str) -> AgentRecord:
     agent = _get_agent_or_404(agent_id)
     if agent.status == "KILLED":
@@ -251,6 +412,11 @@ def _create_agent(req: SpawnRequest) -> tuple[AgentRecord, LedgerRecord]:
     _set_balance_hidden(agent_id, False)
     _save_agent(agent)
     _save_ledger(agent_id, ledger)
+    _save_market_profile(
+        agent_id,
+        tools=req.market_tools or _default_market_tools(agent),
+        knowledge=req.market_knowledge,
+    )
     ensure_workspace.spawn(agent_id)
     _append_event(
         "AGENT_SPAWNED",
@@ -377,6 +543,26 @@ def _apply_task_credit(
     ledger.net_margin_24h = round(ledger.revenue_24h - ledger.cost_24h, 4)
     agent.quality_rolling = round(
         (agent.quality_rolling * 0.7) + (quality_score * 0.3), 4
+    )
+    if agent.status in {"SPAWNED", "FLAGGED"}:
+        agent.status = "ACTIVE"
+
+
+def _apply_market_settlement(
+    *,
+    agent: AgentRecord,
+    ledger: LedgerRecord,
+    payout_credit: float,
+    execution_cost: float,
+    quality_score: float,
+) -> None:
+    ledger.balance = round(ledger.balance + payout_credit - execution_cost, 4)
+    ledger.revenue_24h = round(ledger.revenue_24h + payout_credit, 4)
+    ledger.cost_24h = round(ledger.cost_24h + execution_cost, 4)
+    ledger.net_margin_24h = round(ledger.revenue_24h - ledger.cost_24h, 4)
+    agent.quality_rolling = round(
+        (agent.quality_rolling * 0.7) + (quality_score * 0.3),
+        4,
     )
     if agent.status in {"SPAWNED", "FLAGGED"}:
         agent.status = "ACTIVE"
@@ -629,6 +815,254 @@ async def agent_capabilities(agent_id: str) -> dict[str, Any]:
     return {"agent_id": agent_id, "tool_profile": agent.tool_profile.model_dump()}
 
 
+@web_app.get("/market/state")
+async def market_state(
+    include_hidden: bool = Query(default=False),
+) -> dict[str, Any]:
+    return task_market.state(include_hidden=include_hidden)
+
+
+@web_app.post("/market/tick")
+async def market_tick(req: MarketTickRequest | None = None) -> dict[str, Any]:
+    request = req or MarketTickRequest()
+    summary = task_market.market_tick(
+        tasks_per_tick=request.tasks_per_tick,
+        max_open_listings=request.max_open_listings,
+        listing_ttl_ticks=request.listing_ttl_ticks,
+    )
+    _append_event(
+        "MARKET_TICK",
+        payload={
+            "tick": summary["tick"],
+            "generated": summary["generated_count"],
+            "expired": summary["expired_count"],
+            "open_count": summary["open_count"],
+        },
+    )
+    for listing in summary.get("generated", []):
+        _append_event(
+            "TASK_LISTED",
+            payload={
+                "listing_id": listing.get("listing_id"),
+                "advertised_payout": listing.get("advertised_payout"),
+                "expires_tick": listing.get("expires_tick"),
+            },
+        )
+    for listing_id in summary.get("expired_listing_ids", []):
+        _append_event(
+            "TASK_EXPIRED",
+            payload={
+                "listing_id": listing_id,
+                "tick": summary["tick"],
+            },
+        )
+    return summary
+
+
+@web_app.get("/agents/{agent_id}/market/profile")
+async def get_market_profile(agent_id: str) -> dict[str, Any]:
+    agent = _get_agent_or_404(agent_id)
+    profile = _get_market_profile(agent)
+    return {"agent_id": agent_id, "profile": profile}
+
+
+@web_app.patch("/agents/{agent_id}/market/profile")
+async def patch_market_profile(
+    agent_id: str, req: MarketProfileUpdateRequest
+) -> dict[str, Any]:
+    agent = _get_agent_or_404(agent_id)
+    current = _get_market_profile(agent)
+    tools = current["tools"]
+    knowledge = current["knowledge"]
+
+    if req.tools is not None:
+        tools = req.tools
+    if req.knowledge is not None:
+        knowledge = req.knowledge
+    if req.replace:
+        tools = req.tools or []
+        knowledge = req.knowledge or {}
+
+    profile = _save_market_profile(
+        agent_id,
+        tools=tools,
+        knowledge=knowledge,
+    )
+    _append_event(
+        "AGENT_MARKET_PROFILE_UPDATED",
+        agent_id,
+        {
+            "tool_count": len(profile["tools"]),
+            "knowledge_areas": sorted(profile["knowledge"].keys()),
+        },
+    )
+    return {"agent_id": agent_id, "profile": profile}
+
+
+@web_app.get("/agents/{agent_id}/market/tasks")
+async def get_agent_market_tasks(
+    agent_id: str,
+    include_estimates: bool = Query(default=False),
+    observation_noise: float | None = Query(default=None, ge=0.0, le=3.0),
+) -> dict[str, Any]:
+    agent = _get_agent_or_404(agent_id)
+    profile = _get_market_profile(agent)
+    observed = task_market.observe_for_agent(
+        agent_id=agent_id,
+        agent_tools=profile["tools"],
+        agent_knowledge=profile["knowledge"],
+        observation_noise=observation_noise if include_estimates else None,
+        emit_estimates=include_estimates,
+    )
+    return {"agent_id": agent_id, "profile": profile, "market": observed}
+
+
+@web_app.get("/agents/{agent_id}/market/memory")
+async def get_agent_estimation_memory(agent_id: str) -> dict[str, Any]:
+    _get_agent_or_404(agent_id)
+    return {"agent_id": agent_id, "memory": _get_estimation_memory(agent_id)}
+
+
+@web_app.get("/agents/{agent_id}/market/tasks/{listing_id}/estimate")
+async def estimate_market_task(
+    agent_id: str,
+    listing_id: str,
+    reserve_ticks: float = Query(default=1.0, ge=0.0, le=20.0),
+) -> dict[str, Any]:
+    agent = _get_agent_or_404(agent_id)
+    if agent.status == "KILLED":
+        raise HTTPException(status_code=409, detail="Agent is killed")
+    ledger = _get_ledger_or_404(agent_id)
+    profile = _get_market_profile(agent)
+    listing = task_market.get_listing(
+        listing_id,
+        include_hidden=False,
+        require_open=True,
+    )
+    if listing is None:
+        raise HTTPException(status_code=404, detail=f"Open listing {listing_id} not found")
+
+    memory = _get_estimation_memory(agent_id)
+    estimate = estimate_task_from_description(
+        listing=listing,
+        agent_tools=profile["tools"],
+        agent_knowledge=profile["knowledge"],
+        memory=memory,
+        balance=float(ledger.balance),
+        rent_per_tick=float(ledger.rent_per_tick),
+        safety_buffer=float(ledger.safety_buffer),
+        reserve_ticks=reserve_ticks,
+    )
+    _save_cached_estimate(agent_id, listing_id, estimate)
+    _append_event(
+        "TASK_ESTIMATED",
+        agent_id,
+        {
+            "listing_id": listing_id,
+            "should_accept": bool(estimate["policy"]["should_accept"]),
+            "estimated_net": estimate["policy"]["estimated_net"],
+            "confidence": estimate["success_estimator"]["confidence"],
+        },
+    )
+    return {
+        "agent_id": agent_id,
+        "listing_id": listing_id,
+        "listing": listing,
+        "estimate": estimate,
+    }
+
+
+@web_app.post("/agents/{agent_id}/market/tasks/{listing_id}/attempt")
+async def attempt_market_task(
+    agent_id: str,
+    listing_id: str,
+    req: MarketTaskAttemptRequest,
+) -> dict[str, Any]:
+    agent = _get_agent_or_404(agent_id)
+    if agent.status == "KILLED":
+        raise HTTPException(status_code=409, detail="Agent is killed")
+    ledger = _get_ledger_or_404(agent_id)
+    profile = _get_market_profile(agent)
+    cached_estimate = _get_cached_estimate(agent_id, listing_id)
+    previous_memory = _get_estimation_memory(agent_id)
+
+    try:
+        outcome = task_market.settle_attempt(
+            agent_id=agent_id,
+            listing_id=listing_id,
+            agent_tools=profile["tools"],
+            agent_knowledge=profile["knowledge"],
+            tool_miss_penalty=req.tool_miss_penalty,
+            skill_miss_cost_multiplier=req.skill_miss_cost_multiplier,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status = 404 if "not found" in detail.lower() else 409
+        raise HTTPException(status_code=status, detail=detail) from exc
+
+    settlement = outcome["settlement"]
+    _apply_market_settlement(
+        agent=agent,
+        ledger=ledger,
+        payout_credit=float(settlement["actual_payout"]),
+        execution_cost=float(settlement["actual_cost"]),
+        quality_score=float(settlement["quality_score"]),
+    )
+    _save_agent(agent)
+    _save_ledger(agent_id, ledger)
+
+    memory_updated = None
+    if cached_estimate and isinstance(cached_estimate.get("estimate"), dict):
+        memory_updated = update_estimation_memory(
+            memory=previous_memory,
+            estimate=cached_estimate["estimate"],
+            settlement=settlement,
+            updated_at=utc_now_iso(),
+        )
+        _save_estimation_memory(agent_id, memory_updated)
+        _append_event(
+            "AGENT_ESTIMATION_MEMORY_UPDATED",
+            agent_id,
+            {
+                "listing_id": listing_id,
+                "samples": memory_updated["samples"],
+                "cost_bias": memory_updated["cost_bias"],
+                "payout_bias": memory_updated["payout_bias"],
+                "success_bias": memory_updated["success_bias"],
+            },
+        )
+
+    _append_event(
+        "TASK_CLAIMED",
+        agent_id,
+        {
+            "listing_id": listing_id,
+            "tick": outcome["tick"],
+        },
+    )
+    _append_event(
+        "TASK_SETTLED",
+        agent_id,
+        {
+            "listing_id": listing_id,
+            "success": settlement["success"],
+            "actual_payout": settlement["actual_payout"],
+            "actual_cost": settlement["actual_cost"],
+            "net_credit": settlement["net_credit"],
+            "quality_score": settlement["quality_score"],
+            "fit": settlement["fit"],
+        },
+    )
+    return {
+        "agent_id": agent_id,
+        "listing_id": listing_id,
+        "outcome": outcome,
+        "estimation_memory": memory_updated or previous_memory,
+        "agent": agent.model_dump(),
+        "ledger": ledger.model_dump(),
+    }
+
+
 @web_app.post("/agents/{agent_id}/tools/call")
 async def call_tool(agent_id: str, req: ToolCallRequest) -> dict[str, Any]:
     agent = _get_agent_or_404(agent_id)
@@ -826,6 +1260,7 @@ async def replicate_agent(agent_id: str, req: ReplicateRequest) -> dict[str, Any
     if parent.status == "KILLED":
         raise HTTPException(status_code=409, detail="Killed parent cannot replicate")
     parent_ledger = _get_ledger_or_404(agent_id)
+    parent_market_profile = _get_market_profile(parent)
 
     if parent_ledger.net_margin_24h < REPLICATION_MARGIN_THRESHOLD:
         raise HTTPException(
@@ -847,6 +1282,8 @@ async def replicate_agent(agent_id: str, req: ReplicateRequest) -> dict[str, Any
         tool_rate_limit_per_min=parent.tool_profile.tool_rate_limit_per_min,
         max_bytes_per_call=parent.tool_profile.max_bytes_per_call,
         parent_id=agent_id,
+        market_tools=parent_market_profile["tools"],
+        market_knowledge=parent_market_profile["knowledge"],
     )
     child_agent, child_ledger = _create_agent(child_req)
     _append_event(
@@ -902,7 +1339,13 @@ async def colony_state() -> dict[str, Any]:
     for key, value in ledger_store.items():
         if isinstance(key, str) and isinstance(value, dict):
             ledger.append({"agent_id": key, **value})
-    return {"agents": agents, "ledger": ledger, "ts": utc_now_iso()}
+    market = task_market.state(include_hidden=False)
+    return {
+        "agents": agents,
+        "ledger": ledger,
+        "market": {"tick": market["tick"], "open_count": market["open_count"]},
+        "ts": utc_now_iso(),
+    }
 
 
 @web_app.get("/colony/events")

@@ -66,6 +66,8 @@ class SpawnRequest(BaseModel):
     tool_rate_limit_per_min: int = Field(default=30, ge=1)
     max_bytes_per_call: int = Field(default=DEFAULT_MAX_BYTES, ge=1024, le=262144)
     parent_id: str | None = None
+    market_tools: list[str] | None = None
+    market_knowledge: dict[str, float] | None = None
 
 
 class TaskCreditRequest(BaseModel):
@@ -94,3 +96,20 @@ class AgentLLMTaskRequest(BaseModel):
     goal: str = Field(min_length=1, description="Objective for the agent")
     auto_credit: bool = True
     execute_tool_suggestions: bool = False
+
+
+class MarketTickRequest(BaseModel):
+    tasks_per_tick: int | None = Field(default=None, ge=0, le=200)
+    max_open_listings: int | None = Field(default=None, ge=1, le=2000)
+    listing_ttl_ticks: int | None = Field(default=None, ge=1, le=1000)
+
+
+class MarketProfileUpdateRequest(BaseModel):
+    tools: list[str] | None = None
+    knowledge: dict[str, float] | None = None
+    replace: bool = False
+
+
+class MarketTaskAttemptRequest(BaseModel):
+    tool_miss_penalty: float | None = Field(default=None, ge=0.0)
+    skill_miss_cost_multiplier: float | None = Field(default=None, ge=0.0)
