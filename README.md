@@ -84,6 +84,34 @@ Dashboard API base is read from `agents/.env.local`:
 VITE_COLONY_API_BASE=http://127.0.0.1:8000
 ```
 
+Frontend-only mock mode (no backend required):
+
+```bash
+VITE_USE_MOCKS=true
+VITE_MOCK_SCENARIO=seeded
+```
+
+Available scenarios:
+
+- `seeded`
+- `empty`
+- `high-risk`
+- `backend-down`
+- `slow-network`
+
+Optional endpoint fault injection (`JSON` string in `VITE_MOCK_FAULTS`):
+
+```bash
+VITE_MOCK_FAULTS={"GET /colony/logs":{"status":500,"detail":"forced logs failure"}}
+```
+
+Mock fixture governance:
+
+- Keep mock datasets deterministic (`agents/src/mocks/fixtures.ts` + seeded cursor).
+- Reuse shared contracts in `agents/src/mocks/contracts.ts`.
+- When adding endpoint behavior, update mock state handlers in `agents/src/mocks/state.ts`.
+- Prefer scenario additions over ad-hoc randomization to keep tests reproducible.
+
 ### 5. Optional: run/deploy API on Modal
 
 After loading `.env` and activating `.venv`:

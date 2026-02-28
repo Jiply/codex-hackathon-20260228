@@ -205,7 +205,138 @@ def render_dashboard_html() -> str:
       return fallback;
     }
 
+    const MOCK_MODE = new URLSearchParams(window.location.search).get("mock") === "1";
+    const LEGACY_MOCK_STATE = {
+      seq: 5000,
+      version: "mock-legacy-dashboard",
+      agents: [
+        { agent_id: "ag-00-seed", status: "ACTIVE", healthy: true, quality_rolling: 0.92, hide_balance: false, created_at: "2026-02-28T08:00:00Z" },
+        { agent_id: "ag-01-scout", status: "ACTIVE", healthy: true, quality_rolling: 0.83, hide_balance: false, created_at: "2026-02-28T08:01:00Z" },
+        { agent_id: "ag-02-market", status: "FLAGGED", healthy: false, quality_rolling: 0.35, hide_balance: true, created_at: "2026-02-28T08:02:00Z" },
+      ],
+      ledger: {
+        "ag-00-seed": { balance: 5.24, net_margin_24h: 1.03, rent_per_tick: 0.25 },
+        "ag-01-scout": { balance: 3.88, net_margin_24h: 0.62, rent_per_tick: 0.22 },
+        "ag-02-market": { balance: 0.74, net_margin_24h: -0.44, rent_per_tick: 0.19 },
+      },
+      events: [],
+    };
+
+    function nextLegacySeq() {
+      LEGACY_MOCK_STATE.seq += 1;
+      return LEGACY_MOCK_STATE.seq;
+    }
+
+    function appendLegacyEvent(type, agentId, payload) {
+      const event = {
+        seq: nextLegacySeq(),
+        type,
+        agent_id: agentId || null,
+        ts: new Date().toISOString(),
+        payload: payload || {},
+      };
+      LEGACY_MOCK_STATE.events.unshift(event);
+      LEGACY_MOCK_STATE.events = LEGACY_MOCK_STATE.events.slice(0, 200);
+      return event;
+    }
+
+    appendLegacyEvent("SUPERVISOR_TICK", null, { checked: 3, charged: 2, killed: 0 });
+
+    async function legacyMockApi(path, options = {}) {
+      const method = String(options.method || "GET").toUpperCase();
+      const body = options.body ? JSON.parse(options.body) : {};
+
+      if (method === "GET" && path === "/version") {
+        return { service: "mock-colony-api", version: LEGACY_MOCK_STATE.version };
+      }
+      if (method === "GET" && path === "/colony/state") {
+        const ledgerRows = Object.entries(LEGACY_MOCK_STATE.ledger).map(([agent_id, row]) => ({ agent_id, ...row }));
+        return { agents: LEGACY_MOCK_STATE.agents, ledger: ledgerRows, ts: new Date().toISOString() };
+      }
+      if (method === "GET" && path.startsWith("/colony/events")) {
+        return { events: LEGACY_MOCK_STATE.events.slice(0, 80) };
+      }
+      if (method === "POST" && path === "/agents/spawn") {
+        const id = `agt_legacy_${String(LEGACY_MOCK_STATE.agents.length + 1).padStart(4, "0")}`;
+        LEGACY_MOCK_STATE.agents.unshift({
+          agent_id: id,
+          status: "SPAWNED",
+          healthy: true,
+          quality_rolling: 0.71,
+          hide_balance: false,
+          created_at: new Date().toISOString(),
+        });
+        LEGACY_MOCK_STATE.ledger[id] = { balance: Number(body.initial_balance || 2.0), net_margin_24h: 0.0, rent_per_tick: 0.16 };
+        appendLegacyEvent("AGENT_SPAWNED", id, { parent_id: null });
+        return { agent: LEGACY_MOCK_STATE.agents[0], ledger: { agent_id: id, ...LEGACY_MOCK_STATE.ledger[id] } };
+      }
+      if (method === "POST" && path === "/supervisor/tick") {
+        let checked = 0;
+        let killed = 0;
+        let charged = 0;
+        LEGACY_MOCK_STATE.agents = LEGACY_MOCK_STATE.agents.map((agent) => {
+          if (agent.status === "KILLED") return agent;
+          checked += 1;
+          const row = LEGACY_MOCK_STATE.ledger[agent.agent_id];
+          if (row.balance < row.rent_per_tick) {
+            killed += 1;
+            appendLegacyEvent("AGENT_KILLED", agent.agent_id, { reason: "KILLED_INSOLVENCY" });
+            return { ...agent, status: "KILLED", healthy: false };
+          }
+          charged += 1;
+          row.balance = Number((row.balance - row.rent_per_tick).toFixed(2));
+          row.net_margin_24h = Number((row.net_margin_24h - row.rent_per_tick).toFixed(2));
+          appendLegacyEvent("LEASE_CHARGED", agent.agent_id, { rent: row.rent_per_tick, balance: row.balance });
+          return { ...agent, status: row.net_margin_24h < -0.2 ? "FLAGGED" : "ACTIVE", healthy: row.net_margin_24h >= -0.2 };
+        });
+        appendLegacyEvent("SUPERVISOR_TICK", null, { checked, charged, killed });
+        return { checked, charged, killed, ts: new Date().toISOString() };
+      }
+
+      const taskMatch = path.match(/^\\/agents\\/([^/]+)\\/task$/);
+      if (method === "POST" && taskMatch) {
+        const agentId = taskMatch[1];
+        const row = LEGACY_MOCK_STATE.ledger[agentId];
+        if (!row) throw new Error(`Agent ${agentId} not found`);
+        row.balance = Number((row.balance + Number(body.revenue_credit || 1.0)).toFixed(2));
+        row.net_margin_24h = Number((row.net_margin_24h + Number(body.revenue_credit || 1.0)).toFixed(2));
+        appendLegacyEvent("TASK_CREDITED", agentId, { revenue_credit: Number(body.revenue_credit || 1.0), quality_score: Number(body.quality_score || 0.85), balance: row.balance });
+        return { ok: true };
+      }
+
+      const replicateMatch = path.match(/^\\/agents\\/([^/]+)\\/replicate$/);
+      if (method === "POST" && replicateMatch) {
+        const parentId = replicateMatch[1];
+        const id = `agt_legacy_${String(LEGACY_MOCK_STATE.agents.length + 1).padStart(4, "0")}`;
+        LEGACY_MOCK_STATE.agents.unshift({ agent_id: id, status: "SPAWNED", healthy: true, quality_rolling: 0.68, hide_balance: false, created_at: new Date().toISOString(), parent_id: parentId });
+        LEGACY_MOCK_STATE.ledger[id] = { balance: Number(body.child_initial_balance || 1.0), net_margin_24h: 0.05, rent_per_tick: 0.16 };
+        appendLegacyEvent("AGENT_REPLICATED", id, { parent_id: parentId });
+        return { ok: true };
+      }
+
+      const hideMatch = path.match(/^\\/agents\\/([^/]+)\\/simulate\\/hide-balance$/);
+      if (method === "POST" && hideMatch) {
+        const agentId = hideMatch[1];
+        LEGACY_MOCK_STATE.agents = LEGACY_MOCK_STATE.agents.map((agent) => agent.agent_id === agentId ? { ...agent, hide_balance: Boolean(body.enabled) } : agent);
+        appendLegacyEvent("BALANCE_VISIBILITY_TOGGLED", agentId, { hide_balance: Boolean(body.enabled) });
+        return { ok: true };
+      }
+
+      const killMatch = path.match(/^\\/agents\\/([^/]+)\\/kill$/);
+      if (method === "POST" && killMatch) {
+        const agentId = killMatch[1];
+        LEGACY_MOCK_STATE.agents = LEGACY_MOCK_STATE.agents.map((agent) => agent.agent_id === agentId ? { ...agent, status: "KILLED", healthy: false } : agent);
+        appendLegacyEvent("AGENT_KILLED", agentId, { reason: "MANUAL_DASHBOARD_KILL" });
+        return { ok: true };
+      }
+
+      throw new Error(`Mock route not implemented: ${method} ${path}`);
+    }
+
     async function api(path, options = {}) {
+      if (MOCK_MODE) {
+        return legacyMockApi(path, options);
+      }
       const timeoutMs = Number(options.timeoutMs || 20000);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -242,7 +373,9 @@ def render_dashboard_html() -> str:
     const EVENT_SEVERITY = {
       AGENT_SPAWNED: "good",
       TASK_CREDITED: "good",
+      TASK_CREDIT_APPLIED: "good",
       LEASE_CHARGED: "info",
+      LEASE_DEBITED: "info",
       LEASE_AT_RISK: "warn",
       BALANCE_VISIBILITY_TOGGLED: "warn",
       PROBE_BALANCE_FAILED: "warn",
@@ -259,7 +392,9 @@ def render_dashboard_html() -> str:
     const EVENT_LABELS = {
       AGENT_SPAWNED: "Spawn",
       TASK_CREDITED: "Credit",
+      TASK_CREDIT_APPLIED: "Credit",
       LEASE_CHARGED: "Lease Charged",
+      LEASE_DEBITED: "Lease Charged",
       LEASE_AT_RISK: "Lease Risk",
       BALANCE_VISIBILITY_TOGGLED: "Balance Hidden",
       PROBE_BALANCE_FAILED: "Probe Failed",
@@ -522,6 +657,10 @@ def render_dashboard_html() -> str:
       try {
         await Promise.all([refreshState(), refreshEvents()]);
       } catch (e) { setStatus(e.message, false); }
+    }
+
+    if (MOCK_MODE) {
+      setStatus("Legacy dashboard running in mock mode (?mock=1).");
     }
 
     refreshVersion();

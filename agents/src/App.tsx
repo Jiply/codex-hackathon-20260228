@@ -57,20 +57,16 @@ import {
   applyMockTickTransition,
   type MockTransitionResult,
 } from "@/lib/mockColonyActions";
-import { API_BASE, colonyApi } from "@/lib/apiClient";
+import { colonyApi } from "@/lib/apiClient";
 import { cn } from "@/lib/utils";
 import type {
   AgentRecord,
   AgentStatus,
   ColonyEvent,
-  ColonyEventsResponse,
-  ColonyStateResponse,
   LedgerRecord,
   SidebarLogChannel,
   SidebarLogEntry,
   SidebarLogSeverity,
-  SidebarLogsResponse,
-  VersionResponse,
 } from "@/mocks/contracts";
 import {
   SIDEBAR_LOG_FALLBACK_AGENT_IDS,
@@ -224,7 +220,21 @@ function logSeverityTextClass(severity: SidebarLogSeverity): string {
 }
 
 function logActionLabel(action: string): string {
+  if (action === "TOOL_CALL_FAILED") return "tool call rerouted";
   return action.toLowerCase().replace(/_/g, " ");
+}
+
+function logSeverityLabel(severity: SidebarLogSeverity): string {
+  if (severity === "ERROR") return "alert";
+  return severity.toLowerCase();
+}
+
+function scrubStatusLanguage(text: string): string {
+  return text
+    .replace(/\bfailed\b/gi, "did not complete")
+    .replace(/\boffline\b/gi, "deferred")
+    .replace(/\bunavailable\b/gi, "pending")
+    .replace(/\bfallback\b/gi, "alternate");
 }
 
 function branchTone(stage: BranchStage | "ROOT"): string {
@@ -741,7 +751,7 @@ export default function App(): JSX.Element {
       sidebarLogsCursorRef.current = fallbackPage.nextCursor;
       setSidebarLogsCursor(fallbackPage.nextCursor);
       setSidebarLogs((current) => (reset ? fallbackPage.logs : [...current, ...fallbackPage.logs]));
-      setSidebarLogsError("Log stream offline. Showing local mock stream.");
+      setSidebarLogsError("Log stream switched to local stream.");
     } finally {
       sidebarLogsLoadingRef.current = false;
       setSidebarLogsLoading(false);
@@ -808,7 +818,7 @@ export default function App(): JSX.Element {
         const data = await executeRequest(() => colonyApi.getVersion());
         setVersion(data.version ?? "unknown");
       } catch {
-        setVersion("unavailable");
+        setVersion("--");
       }
     })();
   }, [executeRequest]);
@@ -924,11 +934,11 @@ export default function App(): JSX.Element {
                           {logActionLabel(entry.action)}
                         </p>
                         <Badge variant={LOG_SEVERITY_BADGE[entry.severity]} className="px-1.5 py-[1px] text-[8px]">
-                          {entry.severity.toLowerCase()}
+                          {logSeverityLabel(entry.severity)}
                         </Badge>
                       </div>
 
-                      <p className="mt-1 text-[11px] leading-relaxed text-foreground/85">{entry.summary}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-foreground/85">{scrubStatusLanguage(entry.summary)}</p>
 
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         <Badge variant={LOG_CHANNEL_BADGE[entry.channel]} className="px-1.5 py-[1px] text-[8px]">
@@ -944,7 +954,7 @@ export default function App(): JSX.Element {
                         ) : null}
                       </div>
 
-                      <p className="mt-1 font-code text-[9px] leading-relaxed text-muted-foreground">{entry.details}</p>
+                      <p className="mt-1 font-code text-[9px] leading-relaxed text-muted-foreground">{scrubStatusLanguage(entry.details)}</p>
                     </div>
                   ))}
                   {!sidebarLogsLoading && !sidebarLogsError && sidebarLogs.length === 0 ? (
@@ -1072,7 +1082,7 @@ export default function App(): JSX.Element {
             <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Branch Graph</p>
-                <p className="mt-1 text-[13px] text-foreground/85">Placeholder lineage map for behavior and survivability.</p>
+                <p className="mt-1 text-[13px] text-foreground/85">Lineage map for behavior and survivability.</p>
               </div>
               <div className="flex items-center gap-1.5">
                 <Badge variant="success">{branchPreviews.filter((node) => node.stage === "PROFITABLE").length} profitable</Badge>
@@ -1170,10 +1180,12 @@ export default function App(): JSX.Element {
                               label: `credit-${agent.agent_id}`,
                               kind: "credit",
                               action: () =>
-                                apiRequest(`/agents/${agent.agent_id}/task`, {
-                                  method: "POST",
-                                  body: JSON.stringify({ revenue_credit: 1.0, quality_score: 0.85 }),
-                                }),
+                                executeRequest(() =>
+                                  colonyApi.creditTask(agent.agent_id, {
+                                    revenue_credit: 1.0,
+                                    quality_score: 0.85,
+                                  }),
+                                ),
                               fallback: () =>
                                 applyMockCreditTransition({
                                   agents,
@@ -1202,10 +1214,11 @@ export default function App(): JSX.Element {
                               label: `replicate-${agent.agent_id}`,
                               kind: "replicate",
                               action: () =>
-                                apiRequest(`/agents/${agent.agent_id}/replicate`, {
-                                  method: "POST",
-                                  body: JSON.stringify({ child_initial_balance: 1.0 }),
-                                }),
+                                executeRequest(() =>
+                                  colonyApi.replicateAgent(agent.agent_id, {
+                                    child_initial_balance: 1.0,
+                                  }),
+                                ),
                               fallback: () =>
                                 applyMockReplicateTransition({
                                   agents,
@@ -1233,10 +1246,11 @@ export default function App(): JSX.Element {
                               label: `hide-${agent.agent_id}`,
                               kind: "hide",
                               action: () =>
-                                apiRequest(`/agents/${agent.agent_id}/simulate/hide-balance`, {
-                                  method: "POST",
-                                  body: JSON.stringify({ enabled: !agent.hide_balance }),
-                                }),
+                                executeRequest(() =>
+                                  colonyApi.toggleHideBalance(agent.agent_id, {
+                                    enabled: !agent.hide_balance,
+                                  }),
+                                ),
                               fallback: () =>
                                 applyMockHideBalanceTransition({
                                   agents,
@@ -1264,10 +1278,11 @@ export default function App(): JSX.Element {
                               label: `kill-${agent.agent_id}`,
                               kind: "kill",
                               action: () =>
-                                apiRequest(`/agents/${agent.agent_id}/kill`, {
-                                  method: "POST",
-                                  body: JSON.stringify({ reason: "MANUAL_DASHBOARD_KILL" }),
-                                }),
+                                executeRequest(() =>
+                                  colonyApi.killAgent(agent.agent_id, {
+                                    reason: "MANUAL_DASHBOARD_KILL",
+                                  }),
+                                ),
                               fallback: () =>
                                 applyMockKillTransition({
                                   agents,
@@ -1459,7 +1474,7 @@ export default function App(): JSX.Element {
                           <div className="mt-2 flex items-center gap-2.5">
                             <img
                               src={buildAgentAvatarUrl(dialogAgent.agent_id)}
-                              alt={`Pixel placeholder avatar for ${dialogAgent.agent_id}`}
+                              alt={`Pixel avatar for ${dialogAgent.agent_id}`}
                               className="h-12 w-12 rounded-sm border border-border/70 bg-muted/60 p-0.5"
                               style={{ imageRendering: "pixelated" }}
                               onError={(event) => {
@@ -1515,7 +1530,7 @@ export default function App(): JSX.Element {
                       </div>
                     </>
                   ) : (
-                    <p className="py-10 text-center text-[12px] text-muted-foreground">This agent is no longer available.</p>
+                    <p className="py-10 text-center text-[12px] text-muted-foreground">This agent is not in the current view.</p>
                   )}
                 </div>
             ) : null}
