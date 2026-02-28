@@ -1,13 +1,15 @@
-"""Multi-turn agentic loop engine using OpenAI chat completions with native tool calling.
+"""Multi-turn agentic loop engine using the OpenAI Responses API.
 
-Inspired by the pattern:
+Uses ``client.responses.create()`` with native tool calling.  The loop
+pattern is:
 
     for turn in range(max_turns):
-        result = call_llm(messages, tools)
-        messages.append(result)        # accumulate
-        if no tool_calls: break        # LLM is done
+        response = client.responses.create(input=..., tools=...)
+        extract text + function_call items from response.output
+        if no function_calls: break
+        execute tools, append function_call_output items, loop
 
-The loop is fully decoupled from Modal -- it receives a ``tool_executor``
+The loop is fully decoupled from Modal — it receives a ``tool_executor``
 callable rather than referencing Modal functions directly.
 """
 from __future__ import annotations
@@ -159,21 +161,6 @@ def _parse_self_assessment(text: str | None) -> tuple[float, float]:
     return 0.75, 0.0
 
 
-def _serialize_tool_calls(tool_calls: list) -> list[dict]:
-    """Convert OpenAI tool_call objects to serializable dicts."""
-    return [
-        {
-            "id": tc.id,
-            "type": "function",
-            "function": {
-                "name": tc.function.name,
-                "arguments": tc.function.arguments,
-            },
-        }
-        for tc in tool_calls
-    ]
-
-
 def _parse_tool_args(arguments_json: str) -> dict:
     """Safely parse tool call arguments JSON string."""
     try:
@@ -181,6 +168,30 @@ def _parse_tool_args(arguments_json: str) -> dict:
         return parsed if isinstance(parsed, dict) else {}
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+def _serialize_function_calls(output_items: list) -> list[dict]:
+    """Extract and serialize function_call items from a Responses API output."""
+    calls = []
+    for item in output_items:
+        if getattr(item, "type", None) == "function_call":
+            calls.append({
+                "call_id": item.call_id,
+                "name": item.name,
+                "arguments": item.arguments,
+            })
+    return calls
+
+
+def _extract_text(output_items: list) -> str:
+    """Extract text content from Responses API output items."""
+    texts = []
+    for item in output_items:
+        if getattr(item, "type", None) == "message":
+            for content_part in getattr(item, "content", []):
+                if getattr(content_part, "type", None) == "output_text":
+                    texts.append(content_part.text)
+    return "\n".join(texts)
 
 
 # ---------------------------------------------------------------------------
@@ -201,32 +212,30 @@ def run_agent_loop(
     max_tokens_per_turn: int = LLM_MAX_OUTPUT_TOKENS,
     on_turn: Callable[[dict], None] | None = None,
 ) -> dict[str, Any]:
-    """Run a multi-turn agentic loop with native OpenAI tool calling.
+    """Run a multi-turn agentic loop using the OpenAI Responses API.
 
     Parameters
     ----------
     api_key:
         OpenAI API key.
     model:
-        Model identifier for chat completions.
+        Model identifier (e.g. ``gpt-5.3-codex``).
     agent_id:
         Colony agent identifier (e.g. ``agt_abc12345``).
     goal:
         The objective/task for this execution.
     system_prompt:
-        System message content.
+        Instructions for the model (passed as ``instructions``).
     tool_definitions:
-        OpenAI function calling tool definitions (list of dicts).
+        Tool definitions in Responses API format.
     tool_executor:
-        ``(agent_id, tool_name, args) -> result_dict``.  Decoupled from
-        Modal so the loop can run anywhere.
+        ``(agent_id, tool_name, args) -> result_dict``.
     context:
-        Additional context dict (capabilities, recent events, etc.) to
-        include in the initial user message.
+        Additional context dict to include in the initial input.
     max_turns:
         Maximum number of LLM round-trips.
     max_tokens_per_turn:
-        ``max_tokens`` passed to each completion call.
+        ``max_output_tokens`` passed to each call.
     on_turn:
         Optional callback invoked after each turn with a summary dict.
 
@@ -239,15 +248,15 @@ def run_agent_loop(
     trace = ExecutionTrace(execution_id, agent_id, goal)
     client = OpenAI(api_key=api_key)
 
-    # -- Build initial messages ------------------------------------------------
+    # -- Build initial input ---------------------------------------------------
     user_content = (
         f"## Goal\n{goal}\n\n"
         f"## Context\n```json\n{json.dumps(context, default=str, indent=2)}\n```"
         f"{_SELF_ASSESSMENT_INSTRUCTION}"
     )
 
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt},
+    # Responses API uses a flat list of input items
+    input_items: list[dict[str, Any]] = [
         {"role": "user", "content": user_content},
     ]
 
@@ -258,57 +267,64 @@ def run_agent_loop(
     for turn_index in range(max_turns):
         turn_num = turn_index + 1
 
-        # Call the LLM
+        # Call the LLM via Responses API
         try:
             create_kwargs: dict[str, Any] = {
                 "model": model,
-                "messages": messages,
-                "max_tokens": max_tokens_per_turn,
+                "instructions": system_prompt,
+                "input": input_items,
+                "max_output_tokens": max_tokens_per_turn,
             }
             if tool_definitions:
                 create_kwargs["tools"] = tool_definitions
-                create_kwargs["tool_choice"] = "auto"
 
-            response = client.chat.completions.create(**create_kwargs)
-            msg = response.choices[0].message
+            response = client.responses.create(**create_kwargs)
         except Exception as exc:
+            error_msg = f"[LLM_ERROR turn={turn_num}] {type(exc).__name__}: {exc}"
             logger.error("LLM call failed on turn %d: %s", turn_num, exc)
-            trace.log_llm_response(turn_num, f"[ERROR] {exc}", [])
+            trace.log_llm_response(turn_num, error_msg, [])
+            turns_log.append({
+                "turn": turn_num,
+                "content": error_msg,
+                "tool_calls": [],
+                "tool_results": [],
+            })
+            final_text = error_msg
             break
 
-        content = msg.content or ""
-        raw_tool_calls = msg.tool_calls or []
-        serialized_tool_calls = _serialize_tool_calls(raw_tool_calls)
-
-        # Append assistant message to conversation history
-        assistant_dict: dict[str, Any] = {"role": "assistant", "content": content}
-        if raw_tool_calls:
-            assistant_dict["tool_calls"] = serialized_tool_calls
-        messages.append(assistant_dict)
+        # Extract text and function calls from response output
+        output_items = response.output
+        content = _extract_text(output_items)
+        function_calls = _serialize_function_calls(output_items)
 
         # Log to trace
-        trace.log_llm_response(turn_num, content, serialized_tool_calls)
+        trace.log_llm_response(turn_num, content, function_calls)
 
         # Build turn summary
         turn_summary: dict[str, Any] = {
             "turn": turn_num,
             "content": content if content else None,
-            "tool_calls": serialized_tool_calls,
+            "tool_calls": function_calls,
             "tool_results": [],
         }
 
-        # If no tool calls, the agent is done
-        if not raw_tool_calls:
+        # If no function calls, the agent is done
+        if not function_calls:
             final_text = content
             turns_log.append(turn_summary)
             if on_turn:
                 on_turn(turn_summary)
             break
 
-        # Execute each tool call and feed results back
-        for tc in raw_tool_calls:
-            tool_name = tc.function.name
-            tool_args = _parse_tool_args(tc.function.arguments)
+        # Accumulate the response output into input for next turn
+        # (the Responses API expects previous output items fed back)
+        for item in output_items:
+            input_items.append(item)
+
+        # Execute each function call and feed results back
+        for fc in function_calls:
+            tool_name = fc["name"]
+            tool_args = _parse_tool_args(fc["arguments"])
 
             started = time.time()
             try:
@@ -323,18 +339,18 @@ def run_agent_loop(
             # Log tool result to trace
             trace.log_tool_result(turn_num, tool_name, tool_args, result, duration_ms)
             turn_summary["tool_results"].append({
-                "tool_call_id": tc.id,
+                "call_id": fc["call_id"],
                 "tool": tool_name,
                 "args": tool_args,
                 "result": result,
                 "duration_ms": duration_ms,
             })
 
-            # Append tool result message for the next LLM turn
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": json.dumps(result, default=str),
+            # Append function_call_output for the next LLM turn
+            input_items.append({
+                "type": "function_call_output",
+                "call_id": fc["call_id"],
+                "output": json.dumps(result, default=str),
             })
 
         turns_log.append(turn_summary)
@@ -342,7 +358,7 @@ def run_agent_loop(
         if on_turn:
             on_turn(turn_summary)
 
-        # Track the last content for final_text in case the loop ends at max_turns
+        # Track the last content for final_text in case loop ends at max_turns
         final_text = content
 
     # -- Parse self-assessment from final text ---------------------------------

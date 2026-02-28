@@ -1,12 +1,15 @@
-"""OpenAI function-calling tool definitions for colony agents."""
+"""OpenAI Responses API tool definitions for colony agents."""
 from __future__ import annotations
 
 
 def build_tool_definitions(tool_profile: dict) -> list[dict]:
-    """Build OpenAI tool definitions based on agent's tool profile.
+    """Build tool definitions in the OpenAI Responses API format.
 
-    Returns a list of tool specs in the OpenAI function calling format,
-    filtered by the agent's capabilities (e.g. web_search may be disabled).
+    The Responses API uses a flat structure::
+
+        {"type": "function", "name": "...", "description": "...", "parameters": {...}}
+
+    (as opposed to Chat Completions which nests under ``function:``).
     """
     tools: list[dict] = []
 
@@ -14,27 +17,25 @@ def build_tool_definitions(tool_profile: dict) -> list[dict]:
         tools.append(
             {
                 "type": "function",
-                "function": {
-                    "name": "web_search",
-                    "description": (
-                        "Search the web for information. "
-                        "Results are filtered to allowed domains only."
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Search query",
-                            },
-                            "max_results": {
-                                "type": "integer",
-                                "description": "Maximum results to return (1-10)",
-                                "default": 5,
-                            },
+                "name": "web_search",
+                "description": (
+                    "Search the web for information. "
+                    "Results are filtered to allowed domains only."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query",
                         },
-                        "required": ["query"],
+                        "max_results": {
+                            "type": "integer",
+                            "description": "Maximum results to return (1-10)",
+                            "default": 5,
+                        },
                     },
+                    "required": ["query"],
                 },
             }
         )
@@ -42,24 +43,21 @@ def build_tool_definitions(tool_profile: dict) -> list[dict]:
     tools.append(
         {
             "type": "function",
-            "function": {
-                "name": "file_read",
-                "description": "Read a file from your workspace.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "relative_path": {
-                            "type": "string",
-                            "description": "Path relative to workspace root",
-                        },
-                        "max_bytes": {
-                            "type": "integer",
-                            "description": "Maximum bytes to read",
-                            "default": 32768,
-                        },
+            "name": "file_read",
+            "description": "Read a file from your workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "relative_path": {
+                        "type": "string",
+                        "description": "Path relative to workspace root",
                     },
-                    "required": ["relative_path"],
+                    "max_bytes": {
+                        "type": "integer",
+                        "description": "Maximum bytes to read",
+                    },
                 },
+                "required": ["relative_path"],
             },
         }
     )
@@ -67,28 +65,25 @@ def build_tool_definitions(tool_profile: dict) -> list[dict]:
     tools.append(
         {
             "type": "function",
-            "function": {
-                "name": "file_write",
-                "description": "Write content to a file in your workspace.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "relative_path": {
-                            "type": "string",
-                            "description": "Path relative to workspace root",
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "File content to write",
-                        },
-                        "overwrite": {
-                            "type": "boolean",
-                            "description": "Overwrite if file exists",
-                            "default": True,
-                        },
+            "name": "file_write",
+            "description": "Write content to a file in your workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "relative_path": {
+                        "type": "string",
+                        "description": "Path relative to workspace root",
                     },
-                    "required": ["relative_path", "content"],
+                    "content": {
+                        "type": "string",
+                        "description": "File content to write",
+                    },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": "Overwrite if file exists",
+                    },
                 },
+                "required": ["relative_path", "content"],
             },
         }
     )
