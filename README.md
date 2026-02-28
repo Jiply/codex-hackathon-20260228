@@ -1,42 +1,98 @@
-# codex-hackathon-20260228
+# Mortal Replicator
 
-![Project cover](cover.png)
+Mortal Replicator is a simulated colony of AI agents where survival is not implicit—it is earned.
+Every agent must remain economically and qualitatively fit to continue running. If it cannot cover its operating costs or maintain quality, it is removed. If it thrives, it can replicate.
 
-This entire project is directed, built, and evaluated by Codex.
+## Motivation
 
-## Instructions to Codex
+Most AI-agent demos still optimize for what an agent can do, not for whether it should keep running.
+There is no hard lifecycle control around runtime cost, sustained quality, or failure behavior.
 
-Do NOT touch any files outside of this repository.
+In real systems, this is risky:
+- Unprofitable agents can consume resources indefinitely.
+- Poor-quality agents can persist and poison workflows.
+- Operational costs are often hidden behind “just-in-time” task execution.
 
-## Progress + Key Changes
+Mortal Replicator makes existence itself a controlled resource.
 
-### Implemented Module
+## Problem
 
-- Idea Collision Guardrail docs: [docs/idea-collision-guardrail.md](docs/idea-collision-guardrail.md)
-- Essential entrypoint: `src/idea-collision-guardrail/essential.ts`
-- Testing-only entrypoint: `src/idea-collision-guardrail/testing.ts`
-- Tests: `test/idea-collision-guardrail.test.ts`
+How do we build an agent system where existence is conditional on both economics and performance?
 
-### Agent Capitalism (Modal + OpenAI + Vite dashboard)
+We model this as a market-constrained lifecycle:
+- Agents earn from completed tasks.
+- Rent is charged periodically.
+- Quality is continuously scored.
+- Survival and replication follow deterministic rules.
+- The output is a population-level outcome, not just isolated task completion.
 
-The API lives in `src/colony/main.py` and the dashboard lives in `agents/`.
+## Inspiration
 
-#### 1. Create env files from placeholders
+This project draws from market selection and survival systems:
+- Fit agents earn to survive.
+- Surviving agents can reproduce with controlled mutation.
+- Underperforming agents fail checks and are terminated.
+
+That creates a clear loop:
+**earn → survive → replicate or fail → die**.
+
+## System idea (MVP)
+
+The colony runs on a visible task market and deterministic colony rules.
+
+1. Initialize a seeded colony of agents (not one agent).
+   - Each has balance, quality score, burn/rent profile.
+2. Expose a scoped set of tasks with visible payout and effort signals.
+3. Agents decide which tasks to bid/attempt based on expected payoff.
+4. On completion, each task settles against a hidden true cost.
+   - Update each agent ledger: balance, margin, quality.
+5. On each supervisor tick:
+   - charge rent
+   - evaluate survival
+6. Healthy agents may replicate with small mutations.
+7. Agents failing repeated checks are terminated.
+8. Expose colony outcomes:
+   - survivors
+   - terminated agents
+   - replication count
+   - total colony profit
+
+## Why this matters in a hackathon demo
+
+We intentionally constrain scope to deliver a clear story under judge scrutiny:
+- No real payment APIs in MVP.
+- No direct external execution dependencies for core logic.
+- Deterministic seeding + operator controls to keep runs reproducible.
+- UI focuses on four hard signals:
+  - balance
+  - rent/lease health
+  - quality
+  - status
+
+## Repository structure
+
+- `src/colony/main.py` — backend API and colony simulation runtime.
+- `agents/` — Vite dashboard for observability and operator controls.
+- `docs/` — supporting docs and design notes.
+
+## Setup
+
+### 1) Environment files
 
 ```bash
 cp .env.example .env
 cp agents/.env.example agents/.env.local
 ```
 
-Then fill placeholders in `.env`:
+Required backend keys in `.env`:
 
-- `OPENAI_API_KEY`: your OpenAI key
-- `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET`: your Modal token pair
-- Optional app-level overrides: `MODAL_APP_NAME`, `MODAL_API_LABEL`, `LLM_MODEL`, etc.
+- `OPENAI_API_KEY`
+- `MODAL_TOKEN_ID`
+- `MODAL_TOKEN_SECRET`
 
-#### 2. Backend setup (Python 3.11)
+Optional overrides are supported (for app labeling and model selection).
 
-`pyproject.toml` requires Python `>=3.11`.
+### 2) Backend (Python 3.11)
 
 ```bash
 python3.11 -m venv .venv
@@ -46,7 +102,7 @@ python -m pip install -e .
 python -m pip install "uvicorn[standard]"
 ```
 
-Load env vars in your shell:
+Load env vars:
 
 ```bash
 set -a
@@ -54,15 +110,15 @@ source .env
 set +a
 ```
 
-Create/update the Modal secret used by the deployed app:
+Create/update Modal secret used by the app:
 
 ```bash
 python -m modal secret create "$OPENAI_SECRET_NAME" OPENAI_API_KEY="$OPENAI_API_KEY"
 ```
 
-If the secret already exists, delete/recreate it in Modal or update it in the Modal dashboard.
+If the secret exists, recreate/update it in Modal as needed.
 
-#### 3. Run backend locally
+### 3) Run backend
 
 ```bash
 source .venv/bin/activate
@@ -70,9 +126,7 @@ set -a; source .env; set +a
 python -m uvicorn src.colony.main:web_app --host 127.0.0.1 --port 8000 --reload
 ```
 
-#### 4. Run dashboard locally (your current `http://localhost:5174`)
-
-In a second terminal:
+### 4) Run dashboard (`http://localhost:5174`)
 
 ```bash
 cd agents
@@ -80,13 +134,13 @@ pnpm install
 pnpm dev --host 127.0.0.1 --port 5174
 ```
 
-Dashboard API base is read from `agents/.env.local`:
+Dashboard API config from `agents/.env.local`:
 
 ```bash
 VITE_COLONY_API_BASE=http://127.0.0.1:8000
 ```
 
-Frontend-only mock mode (no backend required):
+### 5) Optional mock mode (no backend required)
 
 ```bash
 VITE_USE_MOCKS=true
@@ -101,31 +155,40 @@ Available scenarios:
 - `backend-down`
 - `slow-network`
 
-Optional endpoint fault injection (`JSON` string in `VITE_MOCK_FAULTS`):
+Example fault injection:
 
 ```bash
 VITE_MOCK_FAULTS={"GET /colony/logs":{"status":500,"detail":"forced logs failure"}}
 ```
 
-Mock fixture governance:
+## Deployment
 
-- Keep mock datasets deterministic (`agents/src/mocks/fixtures.ts` + seeded cursor).
-- Reuse shared contracts in `agents/src/mocks/contracts.ts`.
-- When adding endpoint behavior, update mock state handlers in `agents/src/mocks/state.ts`.
-- Prefer scenario additions over ad-hoc randomization to keep tests reproducible.
-
-### 5. Optional: run/deploy API on Modal
-
-After loading `.env` and activating `.venv`:
+After local validation, run or deploy the backend with Modal:
 
 ```bash
 python -m modal serve src/colony/main.py
 ```
 
-or deploy:
+or
 
 ```bash
 python -m modal deploy src/colony/main.py
 ```
 
-Use the resulting Modal HTTPS URL as `VITE_COLONY_API_BASE` for the dashboard.
+Use the resulting HTTPS endpoint as `VITE_COLONY_API_BASE`.
+
+## Project status & limitations
+
+- Scope is intentionally simulated for MVP velocity.
+- Determinism and explainability are favored over production economics integration.
+- The current iteration proves lifecycle control first; externalized payment rails are a stage-2 extension.
+
+## Suggested GitHub repository name
+
+`mortal-replicator`
+
+If you want a stronger narrative name, alternatives are:
+- `mortal-replicator-colony`
+- `agent-survival-market`
+- `economic-agent-colony`
+
