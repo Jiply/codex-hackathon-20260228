@@ -122,28 +122,28 @@ Safe to delete when stripping test/demo helpers:
 import {
   IdeaCollisionGuardrail,
   InMemoryVectorStore,
-  TokenHashEmbeddingProvider
+  TokenHashEmbeddingProvider,
 } from "../src/idea-collision-guardrail/essential.ts";
 
 const guardrail = new IdeaCollisionGuardrail({
   embeddingProvider: new TokenHashEmbeddingProvider(),
-  vectorStore: new InMemoryVectorStore()
+  vectorStore: new InMemoryVectorStore(),
 });
 
 await guardrail.archiveDeadIdea({
   agent_id: "a-1",
   title: "Autonomous storefront optimizer",
   body: "Optimize product listings with demand-aware rewrites",
-  terminated_reason: "MISSED_LEASE_LIMIT"
+  terminated_reason: "MISSED_LEASE_LIMIT",
 });
 
 const decision = await guardrail.checkCandidateCollision({
   candidate_idea: {
     source_agent_id: "a-2",
     title: "Demand-aware storefront optimizer",
-    body: "Rewrite listings based on buyer intent"
+    body: "Rewrite listings based on buyer intent",
   },
-  attempt: 1
+  attempt: 1,
 });
 
 console.log(decision);
