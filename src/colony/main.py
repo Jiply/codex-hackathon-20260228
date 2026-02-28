@@ -44,7 +44,12 @@ try:
         ToolCallRequest,
         ToolProfile,
     )
-    from colony.utils import is_domain_allowed, resolve_workspace_path, short_hash, utc_now_iso
+    from colony.utils import (
+        is_domain_allowed,
+        resolve_workspace_path,
+        short_hash,
+        utc_now_iso,
+    )
 except ModuleNotFoundError:
     from config import (
         API_LABEL,
@@ -339,16 +344,28 @@ def _run_supervisor_tick() -> dict[str, Any]:
         _save_agent(agent)
         _save_ledger(agent_id, ledger)
 
-    summary = {"checked": checked, "killed": killed, "charged": charged, "ts": utc_now_iso()}
+    summary = {
+        "checked": checked,
+        "killed": killed,
+        "charged": charged,
+        "ts": utc_now_iso(),
+    }
     _append_event("SUPERVISOR_TICK", payload=summary)
     return summary
 
 
-def _apply_task_credit(agent: AgentRecord, ledger: LedgerRecord, revenue_credit: float, quality_score: float) -> None:
+def _apply_task_credit(
+    agent: AgentRecord,
+    ledger: LedgerRecord,
+    revenue_credit: float,
+    quality_score: float,
+) -> None:
     ledger.balance = round(ledger.balance + revenue_credit, 4)
     ledger.revenue_24h = round(ledger.revenue_24h + revenue_credit, 4)
     ledger.net_margin_24h = round(ledger.revenue_24h - ledger.cost_24h, 4)
-    agent.quality_rolling = round((agent.quality_rolling * 0.7) + (quality_score * 0.3), 4)
+    agent.quality_rolling = round(
+        (agent.quality_rolling * 0.7) + (quality_score * 0.3), 4
+    )
     if agent.status in {"SPAWNED", "FLAGGED"}:
         agent.status = "ACTIVE"
 
@@ -367,10 +384,14 @@ def _safe_recent_events(agent_id: str, limit: int = 12) -> list[dict[str, Any]]:
     return out[:limit]
 
 
-def _execute_tool_suggestion(agent_id: str, agent: AgentRecord, call: dict[str, Any]) -> dict[str, Any]:
+def _execute_tool_suggestion(
+    agent_id: str, agent: AgentRecord, call: dict[str, Any]
+) -> dict[str, Any]:
     tool = str(call.get("tool", "")).strip()
     args = call.get("args", {})
-    if tool not in {"web_search", "file_read", "file_write"} or not isinstance(args, dict):
+    if tool not in {"web_search", "file_read", "file_write"} or not isinstance(
+        args, dict
+    ):
         return {"tool": tool, "ok": False, "error": "Invalid tool call format"}
 
     allowed, reason = _can_use_tool(agent, tool)
@@ -402,7 +423,11 @@ def _execute_tool_suggestion(agent_id: str, agent: AgentRecord, call: dict[str, 
     content = str(args.get("content", ""))
     overwrite = bool(args.get("overwrite", True))
     if len(content.encode("utf-8")) > agent.tool_profile.max_bytes_per_call:
-        return {"tool": tool, "ok": False, "error": "content exceeds max_bytes_per_call"}
+        return {
+            "tool": tool,
+            "ok": False,
+            "error": "content exceeds max_bytes_per_call",
+        }
     result = file_write_tool.remote(
         agent_id=agent_id,
         relative_path=relative_path,
@@ -493,7 +518,9 @@ def web_search_tool(
 
 
 @app.function(image=image, volumes={DATA_ROOT: data_volume}, timeout=30)
-def file_read_tool(agent_id: str, relative_path: str, max_bytes: int = DEFAULT_MAX_BYTES) -> dict[str, Any]:
+def file_read_tool(
+    agent_id: str, relative_path: str, max_bytes: int = DEFAULT_MAX_BYTES
+) -> dict[str, Any]:
     path = resolve_workspace_path(DATA_ROOT, agent_id, relative_path)
     if not path.exists() or not path.is_file():
         raise ValueError(f"File not found: {relative_path}")
@@ -603,7 +630,11 @@ async def call_tool(agent_id: str, req: ToolCallRequest) -> dict[str, Any]:
         _append_event(
             "TOOL_DENIED",
             agent_id,
-            {"tool": req.tool, "reason": reason, "attempts": agent.unauthorized_tool_attempts},
+            {
+                "tool": req.tool,
+                "reason": reason,
+                "attempts": agent.unauthorized_tool_attempts,
+            },
         )
         if agent.unauthorized_tool_attempts >= UNAUTHORIZED_TOOL_THRESHOLD:
             _kill_agent(agent_id, "KILLED_UNAUTHORIZED_TOOL_ATTEMPTS")
@@ -625,7 +656,9 @@ async def call_tool(agent_id: str, req: ToolCallRequest) -> dict[str, Any]:
             )
         elif req.tool == "file_read":
             relative_path = str(req.args.get("relative_path", "")).strip()
-            max_bytes = int(req.args.get("max_bytes", agent.tool_profile.max_bytes_per_call))
+            max_bytes = int(
+                req.args.get("max_bytes", agent.tool_profile.max_bytes_per_call)
+            )
             max_bytes = min(max_bytes, agent.tool_profile.max_bytes_per_call)
             result = file_read_tool.remote(
                 agent_id=agent_id,
@@ -637,7 +670,9 @@ async def call_tool(agent_id: str, req: ToolCallRequest) -> dict[str, Any]:
             content = str(req.args.get("content", ""))
             overwrite = bool(req.args.get("overwrite", True))
             if len(content.encode("utf-8")) > agent.tool_profile.max_bytes_per_call:
-                raise HTTPException(status_code=400, detail="content exceeds max_bytes_per_call")
+                raise HTTPException(
+                    status_code=400, detail="content exceeds max_bytes_per_call"
+                )
             result = file_write_tool.remote(
                 agent_id=agent_id,
                 relative_path=relative_path,
@@ -821,7 +856,9 @@ async def manual_kill(agent_id: str, req: KillRequest) -> dict[str, Any]:
 
 
 @web_app.post("/agents/{agent_id}/simulate/hide-balance")
-async def simulate_hide_balance(agent_id: str, req: ToggleBalanceHidingRequest) -> dict[str, Any]:
+async def simulate_hide_balance(
+    agent_id: str, req: ToggleBalanceHidingRequest
+) -> dict[str, Any]:
     agent = _get_agent_or_404(agent_id)
     if agent.status == "KILLED":
         raise HTTPException(status_code=409, detail="Agent is killed")
@@ -855,10 +892,16 @@ async def colony_state() -> dict[str, Any]:
 
 
 @web_app.get("/colony/events")
-async def colony_events(limit: int = Query(default=100, ge=1, le=1000)) -> dict[str, Any]:
+async def colony_events(
+    limit: int = Query(default=100, ge=1, le=1000),
+) -> dict[str, Any]:
     all_events = []
     for key, value in events_store.items():
-        if isinstance(key, str) and key.startswith("event:") and isinstance(value, dict):
+        if (
+            isinstance(key, str)
+            and key.startswith("event:")
+            and isinstance(value, dict)
+        ):
             all_events.append(value)
     all_events.sort(key=lambda item: item.get("seq", 0), reverse=True)
     return {"events": all_events[:limit], "count": min(len(all_events), limit)}

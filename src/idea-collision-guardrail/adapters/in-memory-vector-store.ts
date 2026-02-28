@@ -15,15 +15,11 @@ export class InMemoryVectorStore implements VectorStore {
   async upsertArchivedIdea(idea: ArchivedIdea, vector: number[]): Promise<void> {
     this.items.set(idea.id, {
       idea,
-      vector
+      vector,
     });
   }
 
-  async querySimilar(
-    queryVector: number[],
-    topK: number,
-    filters: JsonMap = {}
-  ): Promise<SimilarityMatch[]> {
+  async querySimilar(queryVector: number[], topK: number, filters: JsonMap = {}): Promise<SimilarityMatch[]> {
     const matches: SimilarityMatch[] = [];
 
     for (const [id, record] of this.items.entries()) {
@@ -39,8 +35,8 @@ export class InMemoryVectorStore implements VectorStore {
           niche: record.idea.niche,
           tags: record.idea.tags,
           canonical_text: record.idea.canonical_text ?? "",
-          ...record.idea.metadata
-        }
+          ...record.idea.metadata,
+        },
       });
     }
 
@@ -48,11 +44,7 @@ export class InMemoryVectorStore implements VectorStore {
     return matches.slice(0, topK);
   }
 
-  async queryKeyword(
-    queryText: string,
-    topK: number,
-    filters: JsonMap = {}
-  ): Promise<SimilarityMatch[]> {
+  async queryKeyword(queryText: string, topK: number, filters: JsonMap = {}): Promise<SimilarityMatch[]> {
     const matches: SimilarityMatch[] = [];
 
     for (const [id, record] of this.items.entries()) {
@@ -60,8 +52,7 @@ export class InMemoryVectorStore implements VectorStore {
         continue;
       }
 
-      const documentText =
-        record.idea.canonical_text ?? `${record.idea.title ?? ""} ${record.idea.body ?? ""}`;
+      const documentText = record.idea.canonical_text ?? `${record.idea.title ?? ""} ${record.idea.body ?? ""}`;
       const score = lexicalOverlapScore(queryText, documentText);
       if (score <= 0) {
         continue;
@@ -75,8 +66,8 @@ export class InMemoryVectorStore implements VectorStore {
           niche: record.idea.niche,
           tags: record.idea.tags,
           canonical_text: documentText,
-          ...record.idea.metadata
-        }
+          ...record.idea.metadata,
+        },
       });
     }
 

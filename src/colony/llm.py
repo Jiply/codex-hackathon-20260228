@@ -111,7 +111,9 @@ def run_agent_task_plan(
                 continue
             tool = item.get("tool")
             args = item.get("args", {})
-            if tool in {"web_search", "file_read", "file_write"} and isinstance(args, dict):
+            if tool in {"web_search", "file_read", "file_write"} and isinstance(
+                args, dict
+            ):
                 tool_calls.append({"tool": tool, "args": args})
 
     return {

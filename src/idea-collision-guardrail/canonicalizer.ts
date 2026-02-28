@@ -3,11 +3,7 @@ const URL_RE = /https?:\/\/\S+/g;
 const MARKDOWN_RE = /[`*_>#~]+/g;
 const NON_ALNUM_RE = /[^a-z0-9\s]/g;
 
-export function canonicalizeIdeaText(input: {
-  title?: string;
-  body?: string;
-  tags?: string[];
-}): string {
+export function canonicalizeIdeaText(input: { title?: string; body?: string; tags?: string[] }): string {
   const title = (input.title ?? "").trim();
   const body = (input.body ?? "").trim();
   const tags = input.tags ?? [];

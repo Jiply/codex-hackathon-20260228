@@ -11,7 +11,7 @@ export const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = Object.freeze({
   mode: "auto",
   semanticCandidatePool: 20,
   keywordCandidatePool: 20,
-  rrfK: 60
+  rrfK: 60,
 });
 
 export function fuseMatchesWithRrf(input: {
@@ -36,7 +36,7 @@ export function fuseMatchesWithRrf(input: {
     const match = input.semanticMatches[i];
     const existing = byId.get(match.archived_idea_id) ?? {
       archived_idea_id: match.archived_idea_id,
-      metadata: {}
+      metadata: {},
     };
 
     byId.set(match.archived_idea_id, {
@@ -45,8 +45,8 @@ export function fuseMatchesWithRrf(input: {
       semantic_rank: i + 1,
       metadata: {
         ...(existing.metadata ?? {}),
-        ...(match.metadata ?? {})
-      }
+        ...(match.metadata ?? {}),
+      },
     });
   }
 
@@ -54,7 +54,7 @@ export function fuseMatchesWithRrf(input: {
     const match = input.keywordMatches[i];
     const existing = byId.get(match.archived_idea_id) ?? {
       archived_idea_id: match.archived_idea_id,
-      metadata: {}
+      metadata: {},
     };
 
     byId.set(match.archived_idea_id, {
@@ -63,8 +63,8 @@ export function fuseMatchesWithRrf(input: {
       keyword_rank: i + 1,
       metadata: {
         ...(existing.metadata ?? {}),
-        ...(match.metadata ?? {})
-      }
+        ...(match.metadata ?? {}),
+      },
     });
   }
 
@@ -83,8 +83,8 @@ export function fuseMatchesWithRrf(input: {
         lexical_score: item.lexical_score ?? 0,
         rrf_score: rrfScore,
         semantic_rank: item.semantic_rank ?? null,
-        keyword_rank: item.keyword_rank ?? null
-      }
+        keyword_rank: item.keyword_rank ?? null,
+      },
     });
   }
 

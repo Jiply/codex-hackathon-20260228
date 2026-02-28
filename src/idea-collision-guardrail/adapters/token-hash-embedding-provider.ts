@@ -9,10 +9,7 @@ export class TokenHashEmbeddingProvider implements EmbeddingProvider {
 
   async embed(text: string): Promise<number[]> {
     const vector = new Array(this.dimensions).fill(0);
-    const tokens = (text || "")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+    const tokens = (text || "").trim().split(/\s+/).filter(Boolean);
 
     for (const token of tokens) {
       const idx = stableHash(token, this.dimensions);

@@ -51,17 +51,15 @@ export interface CollisionDecision {
 export const CollisionEventType = Object.freeze({
   IDEA_ARCHIVED: "IDEA_ARCHIVED",
   IDEA_COLLISION_PASSED: "IDEA_COLLISION_PASSED",
-  IDEA_COLLISION_REJECTED: "IDEA_COLLISION_REJECTED"
+  IDEA_COLLISION_REJECTED: "IDEA_COLLISION_REJECTED",
 });
 
-export type CollisionEventTypeValue =
-  (typeof CollisionEventType)[keyof typeof CollisionEventType];
+export type CollisionEventTypeValue = (typeof CollisionEventType)[keyof typeof CollisionEventType];
 
 export const CollisionReasonCode = Object.freeze({
   IDEA_COLLISION_SINGLE_HIGH_SCORE: "IDEA_COLLISION_SINGLE_HIGH_SCORE",
   IDEA_COLLISION_MULTI_NEIGHBOR: "IDEA_COLLISION_MULTI_NEIGHBOR",
-  IDEA_COLLISION_LEXICAL_HIGH_OVERLAP: "IDEA_COLLISION_LEXICAL_HIGH_OVERLAP"
+  IDEA_COLLISION_LEXICAL_HIGH_OVERLAP: "IDEA_COLLISION_LEXICAL_HIGH_OVERLAP",
 });
 
-export type CollisionReasonCodeValue =
-  (typeof CollisionReasonCode)[keyof typeof CollisionReasonCode];
+export type CollisionReasonCodeValue = (typeof CollisionReasonCode)[keyof typeof CollisionReasonCode];

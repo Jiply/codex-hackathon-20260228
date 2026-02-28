@@ -5,7 +5,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 try:
-    from colony.config import DEFAULT_MAX_BYTES, DEFAULT_RENT_PER_TICK, DEFAULT_SAFETY_BUFFER
+    from colony.config import (
+        DEFAULT_MAX_BYTES,
+        DEFAULT_RENT_PER_TICK,
+        DEFAULT_SAFETY_BUFFER,
+    )
 except ModuleNotFoundError:
     from config import DEFAULT_MAX_BYTES, DEFAULT_RENT_PER_TICK, DEFAULT_SAFETY_BUFFER
 

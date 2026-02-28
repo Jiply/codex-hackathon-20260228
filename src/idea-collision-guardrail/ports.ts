@@ -1,10 +1,4 @@
-import type {
-  ArchivedIdea,
-  CandidateIdea,
-  CollisionDecision,
-  JsonMap,
-  SimilarityMatch
-} from "./contracts.ts";
+import type { ArchivedIdea, CandidateIdea, CollisionDecision, JsonMap, SimilarityMatch } from "./contracts.ts";
 
 export interface EmbeddingProvider {
   embed(text: string): Promise<number[]> | number[];
@@ -12,16 +6,8 @@ export interface EmbeddingProvider {
 
 export interface VectorStore {
   upsertArchivedIdea(idea: ArchivedIdea, vector: number[]): Promise<void> | void;
-  querySimilar(
-    vector: number[],
-    topK: number,
-    filters?: JsonMap
-  ): Promise<SimilarityMatch[]> | SimilarityMatch[];
-  queryKeyword?(
-    queryText: string,
-    topK: number,
-    filters?: JsonMap
-  ): Promise<SimilarityMatch[]> | SimilarityMatch[];
+  querySimilar(vector: number[], topK: number, filters?: JsonMap): Promise<SimilarityMatch[]> | SimilarityMatch[];
+  queryKeyword?(queryText: string, topK: number, filters?: JsonMap): Promise<SimilarityMatch[]> | SimilarityMatch[];
 }
 
 export interface LifecycleHookAdapter {
