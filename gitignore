@@ -1,1 +1,5 @@
 .DS_Store
+dashboard-ui/node_modules
+dashboard-ui/dist
+dashboard-ui/.vite
+dashboard-ui/*.tsbuildinfo
