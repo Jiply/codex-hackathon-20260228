@@ -1,4 +1,5 @@
 """JSONL-backed local stores, replacing Modal Dict."""
+
 from __future__ import annotations
 
 import json

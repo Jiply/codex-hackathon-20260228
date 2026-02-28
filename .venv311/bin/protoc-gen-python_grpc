@@ -1,0 +1,8 @@
+#!/bin/sh
+'''exec' "/Users/jeremysoo/projects/20260228 - hackathon/.venv311/bin/python" "$0" "$@"
+' '''
+import sys
+from grpclib.plugin.main import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())

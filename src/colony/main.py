@@ -35,7 +35,6 @@ try:
     )
     from colony.dashboard import render_dashboard_html
     from colony.llm import run_agent_task_plan
-    from colony.stores import EventLog, JsonlStore
     from colony.schemas import (
         AgentLLMTaskRequest,
         AgentRecord,
@@ -48,6 +47,7 @@ try:
         ToolCallRequest,
         ToolProfile,
     )
+    from colony.stores import EventLog, JsonlStore
     from colony.utils import (
         is_domain_allowed,
         resolve_workspace_path,
@@ -78,7 +78,6 @@ except ModuleNotFoundError:
     )
     from dashboard import render_dashboard_html
     from llm import run_agent_task_plan
-    from stores import EventLog, JsonlStore
     from schemas import (
         AgentLLMTaskRequest,
         AgentRecord,
@@ -91,6 +90,7 @@ except ModuleNotFoundError:
         ToolCallRequest,
         ToolProfile,
     )
+    from stores import EventLog, JsonlStore
     from utils import is_domain_allowed, resolve_workspace_path, short_hash, utc_now_iso
 
 
@@ -876,7 +876,9 @@ async def simulate_hide_balance(
         raise HTTPException(status_code=409, detail="Agent is killed")
     agent.hide_balance = _set_balance_hidden(agent_id, req.enabled)
     _save_agent(agent)
-    _append_event("BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": agent.hide_balance})
+    _append_event(
+        "BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": agent.hide_balance}
+    )
     return {"agent_id": agent_id, "hide_balance": agent.hide_balance}
 
 

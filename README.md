@@ -17,13 +17,13 @@ Do NOT touch any files outside of this repository.
 
 ### Colony Arena (Modal + OpenAI + Vite dashboard)
 
-The API lives in `src/colony/main.py` and the dashboard lives in `dashboard-ui/`.
+The API lives in `src/colony/main.py` and the dashboard lives in `agents/`.
 
 #### 1. Create env files from placeholders
 
 ```bash
 cp .env.example .env
-cp dashboard-ui/.env.example dashboard-ui/.env.local
+cp agents/.env.example agents/.env.local
 ```
 
 Then fill placeholders in `.env`:
@@ -73,12 +73,12 @@ python -m uvicorn src.colony.main:web_app --host 127.0.0.1 --port 8000 --reload
 In a second terminal:
 
 ```bash
-cd dashboard-ui
+cd agents
 pnpm install
 pnpm dev --host 127.0.0.1 --port 5174
 ```
 
-Dashboard API base is read from `dashboard-ui/.env.local`:
+Dashboard API base is read from `agents/.env.local`:
 
 ```bash
 VITE_COLONY_API_BASE=http://127.0.0.1:8000

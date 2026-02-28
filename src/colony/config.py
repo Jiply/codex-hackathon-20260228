@@ -18,7 +18,9 @@ _cors_origins_raw = os.getenv(
     "CORS_ALLOW_ORIGINS",
     "http://localhost:5174,http://127.0.0.1:5174",
 )
-CORS_ALLOW_ORIGINS = [origin.strip() for origin in _cors_origins_raw.split(",") if origin.strip()]
+CORS_ALLOW_ORIGINS = [
+    origin.strip() for origin in _cors_origins_raw.split(",") if origin.strip()
+]
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-5.3-codex")
 LLM_MAX_OUTPUT_TOKENS = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "700"))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
