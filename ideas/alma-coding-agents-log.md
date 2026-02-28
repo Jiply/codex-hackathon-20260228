@@ -18,6 +18,7 @@ Adapting the ALMA framework (Automated meta-Learning of Memory designs for Agent
 Implemented a complete coding environment wrapper compatible with ALMA's step-by-step agent loop.
 
 **New files created:**
+
 - `envs_archive/coding_envs.py` — Core `Coding_Env(Basic_Env)` with SWE-bench-compatible task loading, workspace setup (local dir copy, git clone, inline files, test patch application), action execution (read_file, edit_file, create_file, run_command, search, list_dir, submit), and test-based reward calculation
 - `envs_archive/prompts/coding_prompt.py` — Prompt templates for the execution agent
 - `envs_archive/configs/coding_config.yaml` — Config (max_trails=30, command_timeout=60, test_timeout=120)
@@ -30,6 +31,7 @@ Implemented a complete coding environment wrapper compatible with ALMA's step-by
 - `run_coding.sh` — Convenience runner script
 
 **Existing files modified:**
+
 - `agent_workflow.py` — Added `'coding': 'Coding_Env'` to ENVS dict
 - `meta_agent.py` — Added `'coding': "CodingRecorder"` to RECORDER dict
 - `meta_agent_prompt.py` — Added comprehensive coding-specific task descriptions and memory pattern cheat sheets for the meta agent
@@ -50,6 +52,7 @@ Multiple bugs encountered and fixed during end-to-end testing:
 ### Pipeline Validation
 
 First successful end-to-end run with 3 sample tasks:
+
 - **no_mem baseline**: AVG Reward 1.0 (all 3 trivial tasks solved by gpt-4o-mini)
 - Confirmed: API calls work, task loading works, reward calculation works
 
@@ -62,16 +65,19 @@ First successful end-to-end run with 3 sample tasks:
 Before running experiments, conducted thorough research using agent teams across 3 dimensions:
 
 #### 1. ALMA Paper Results Assessment
+
 - Tested on 4 game environments (ALFWorld, TextWorld, BabaIsAI, MiniHack)
 - Results: 12.3% success rate with GPT-5-nano vs 6.1-8.6% for baselines; 53.9% with GPT-5-mini vs 40.1-48.6% for baselines
 - Codebase quality: **Research prototype** — no unit tests for core logic, commented-out debug prints, hardcoded Docker paths, minimal sandboxing for generated code
 
 #### 2. Current State of Coding Agent Memory
+
 - **No production coding agent learns from past task outcomes**: Devin (user-curated knowledge base), Copilot (auto-memories with 28-day expiry), Claude Code (CLAUDE.md files), Codex (AGENTS.md), Cursor (embedding index + rules). All use instruction memory, not experience-driven learning.
 - **Research papers**: MemRL (Q-value learning on episodic memory, Jan 2026), Reflexion (verbal self-critique, NeurIPS 2023), SWE-Search (MCTS for coding, ICLR 2025), A-MEM (Zettelkasten-style, Feb 2025)
 - **Key gap**: No one has meta-learned memory architectures specifically for coding agents
 
 #### 3. Critical Analysis of ALMA-for-Coding Fit
+
 - **Task granularity**: Reward signal (test pass rate) is actually decent — fractional, not just binary
 - **Memory relevance tension**: Memory that transfers across projects = stuff the LLM already knows. Memory that helps = project-specific context that doesn't transfer.
 - **Sample efficiency**: ~$500-2,000 per meaningful evolution run, 50-100+ hours wall-clock
@@ -93,6 +99,7 @@ Defined 3 hypotheses to test sequentially, each gating the next:
 Created team `h1-experiment` with 2 parallel agents:
 
 **dataset-creator** built `~/alma/generate_dataset.py` which generates:
+
 - 6 Python projects: mathlib (11 tasks), textprocessor (10), collections (9), taskmanager (8), httptools (7), dateutils (9)
 - 54 total tasks with difficulty distribution: 17 easy / 23 medium / 14 hard
 - Each task: a Python project with a specific bug introduced, pytest tests that fail on the bug
@@ -100,6 +107,7 @@ Created team `h1-experiment` with 2 parallel agents:
 - Output: `~/alma/data/coding/tasks.jsonl` + 54 repo directories in `sample_repos/`
 
 **baseline-engineer** created:
+
 - `memo_archive/baseline/memo_structure_claude_md_seeded.py` — identical to claude_md but pre-seeded with 1,986 chars of battle-tested coding conventions (read tests first, minimal changes, common Python pitfalls, 7-step workflow)
 - Registered `claude_md_seeded` in `eval_in_container.py` BASELINES set
 - Verified all 3 baselines instantiate correctly
@@ -107,11 +115,13 @@ Created team `h1-experiment` with 2 parallel agents:
 #### H1 Experiment Run 1: ALMA Pipeline (Underpowered)
 
 Ran 3 baselines through the standard ALMA pipeline:
+
 ```
 --task_type coding --rollout_type batched --train_size 27 --status test
 ```
 
 Pipeline mechanics:
+
 - 54 tasks → `_split_tasks('test', 27)` → 27 test tasks
 - Shuffled with seed(42), split at mid=13
 - **Update phase**: 13 tasks run WITHOUT memory retrieval, then `general_update()` called → claude_md learns conventions
@@ -138,6 +148,7 @@ The directional signal is clear (+12.1% with consistent direction across all gro
 #### H1 Experiment Run 2: Paired Comparison (Pending)
 
 To get proper statistical power, running a paired design:
+
 - Each of the 54 tasks run TWICE: once with no_mem, once with claude_md_seeded
 - Paired t-test on per-task deltas → N=54 paired observations
 - This is ~18x more powerful than the grouped design
@@ -149,6 +160,7 @@ To get proper statistical power, running a paired design:
 ## Architecture Notes
 
 ### ALMA Core Abstractions
+
 - `MemoStructure` — orchestrates memory layers (has `general_retrieve` and `general_update`)
 - `Sub_memo_layer` — individual memory component (has `retrieve` and `update`)
 - `Basic_Env` — environment interface: `set_task_env`, `run_step`, `cal_reward`, `get_prompt`
@@ -157,6 +169,7 @@ To get proper statistical power, running a paired design:
 - `MetaAgent` — outer evolution loop: analyze → generate → examine → evaluate → select
 
 ### Execution Flow
+
 ```
 run_main.py
   → MetaAgent.run_single_memo() / forward()
@@ -173,17 +186,19 @@ run_main.py
 ```
 
 ### Coding Environment Action Space
-| Action | Description |
-|---|---|
-| read_file | Read file contents (up to 10K chars) |
-| edit_file | Find/replace or full content replacement |
-| create_file | Create new file with content |
-| run_command | Shell command with timeout |
-| search | grep -rn with file type filters |
-| list_dir | List directory contents |
-| submit | Signal completion, trigger test execution |
+
+| Action      | Description                               |
+| ----------- | ----------------------------------------- |
+| read_file   | Read file contents (up to 10K chars)      |
+| edit_file   | Find/replace or full content replacement  |
+| create_file | Create new file with content              |
+| run_command | Shell command with timeout                |
+| search      | grep -rn with file type filters           |
+| list_dir    | List directory contents                   |
+| submit      | Signal completion, trigger test execution |
 
 ### Key File Paths
+
 ```
 ~/alma/
 ├── envs_archive/coding_envs.py          # Coding environment
