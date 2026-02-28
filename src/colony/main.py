@@ -3,98 +3,65 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import random
 import time
-import uuid
 from pathlib import Path
 from typing import Any
 
 import httpx
 import modal
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 
-try:
-    from colony.config import (
-        API_LABEL,
-        APP_NAME,
-        APP_VERSION,
-        CORS_ALLOW_ORIGINS,
-        DATA_ROOT,
-        DEFAULT_MAX_BYTES,
-        INSOLVENCY_THRESHOLD,
-        LLM_MAX_OUTPUT_TOKENS,
-        LLM_MODEL,
-        LOW_QUALITY_THRESHOLD,
-        OPENAI_API_KEY,
-        OPENAI_SECRET_NAME,
-        QUALITY_FLOOR,
-        REPLICATION_MARGIN_THRESHOLD,
-        REPLICATION_QUALITY_THRESHOLD,
-        STEALTH_FAILURE_THRESHOLD,
-        STORE_DIR,
-        UNAUTHORIZED_TOOL_THRESHOLD,
-        build_image,
-    )
-    from colony.dashboard import render_dashboard_html
-    from colony.llm import run_agent_task_plan
-    from colony.schemas import (
-        AgentLLMTaskRequest,
-        AgentRecord,
-        KillRequest,
-        LedgerRecord,
-        ReplicateRequest,
-        SpawnRequest,
-        TaskCreditRequest,
-        ToggleBalanceHidingRequest,
-        ToolCallRequest,
-        ToolProfile,
-    )
-    from colony.stores import EventLog, JsonlStore
-    from colony.utils import (
-        is_domain_allowed,
-        resolve_workspace_path,
-        short_hash,
-        utc_now_iso,
-    )
-except ModuleNotFoundError:
-    from config import (
-        API_LABEL,
-        APP_NAME,
-        APP_VERSION,
-        CORS_ALLOW_ORIGINS,
-        DATA_ROOT,
-        DEFAULT_MAX_BYTES,
-        INSOLVENCY_THRESHOLD,
-        LLM_MAX_OUTPUT_TOKENS,
-        LLM_MODEL,
-        LOW_QUALITY_THRESHOLD,
-        OPENAI_API_KEY,
-        OPENAI_SECRET_NAME,
-        QUALITY_FLOOR,
-        REPLICATION_MARGIN_THRESHOLD,
-        REPLICATION_QUALITY_THRESHOLD,
-        STEALTH_FAILURE_THRESHOLD,
-        STORE_DIR,
-        UNAUTHORIZED_TOOL_THRESHOLD,
-        build_image,
-    )
-    from dashboard import render_dashboard_html
-    from llm import run_agent_task_plan
-    from schemas import (
-        AgentLLMTaskRequest,
-        AgentRecord,
-        KillRequest,
-        LedgerRecord,
-        ReplicateRequest,
-        SpawnRequest,
-        TaskCreditRequest,
-        ToggleBalanceHidingRequest,
-        ToolCallRequest,
-        ToolProfile,
-    )
-    from stores import EventLog, JsonlStore
-    from utils import is_domain_allowed, resolve_workspace_path, short_hash, utc_now_iso
+from colony.config import (
+    API_LABEL,
+    APP_NAME,
+    APP_VERSION,
+    DATA_ROOT,
+    DEFAULT_MAX_BYTES,
+    LLM_MAX_OUTPUT_TOKENS,
+    LLM_MODEL,
+    OPENAI_API_KEY,
+    OPENAI_SECRET_NAME,
+    REPLICATION_MARGIN_THRESHOLD,
+    REPLICATION_QUALITY_THRESHOLD,
+    UNAUTHORIZED_TOOL_THRESHOLD,
+    build_image,
+)
+from colony.agent_loop import run_agent_loop
+from colony.llm import run_agent_task_plan
+from colony.prompts import AGENT_SYSTEM_PROMPT, build_user_prompt
+from colony.schemas import (
+    AgentLLMTaskRequest,
+    AgentLoopRequest,
+    AgentRecord,
+    KillRequest,
+    ReplicateRequest,
+    SpawnRequest,
+    TaskCreditRequest,
+    ToggleBalanceHidingRequest,
+    ToolCallRequest,
+)
+from colony.tool_defs import build_tool_definitions
+from colony.services import (
+    _append_event,
+    _apply_task_credit,
+    _apply_tool_rate_limit,
+    _can_use_tool,
+    _create_agent,
+    _get_agent_or_404,
+    _get_ledger_or_404,
+    _is_balance_hidden,
+    _kill_agent,
+    _run_supervisor_tick,
+    _safe_recent_events,
+    _save_agent,
+    _save_ledger,
+    _set_balance_hidden,
+)
+from colony.stores import agents_store, events_store, ledger_store
+from colony.utils import is_domain_allowed, resolve_workspace_path, short_hash, utc_now_iso
 
+# ---------------------------------------------------------------------------
+# Modal app, volume, image
+# ---------------------------------------------------------------------------
 
 image = build_image()
 app = modal.App(name=APP_NAME, image=image)
@@ -239,13 +206,6 @@ _LOG_PROFILES: tuple[dict[str, Any], ...] = (
 )
 
 web_app = FastAPI(title="Mortal Replicator Colony API", version=APP_VERSION)
-web_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ALLOW_ORIGINS,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 def _default_tool_profile(
@@ -685,6 +645,11 @@ def _execute_tool_suggestion(
     return {"tool": tool, "ok": True, "result": result}
 
 
+# ---------------------------------------------------------------------------
+# Modal functions
+# ---------------------------------------------------------------------------
+
+
 @app.function(image=image, volumes={DATA_ROOT: data_volume}, timeout=30)
 def ensure_workspace(agent_id: str) -> None:
     workspace = Path(DATA_ROOT) / agent_id / "workspace"
@@ -696,6 +661,24 @@ def ensure_workspace(agent_id: str) -> None:
             encoding="utf-8",
         )
     data_volume.commit()
+
+
+def _ensure_workspace_best_effort(agent_id: str) -> None:
+    """Create agent workspace in Modal when available, otherwise local fallback."""
+    try:
+        ensure_workspace.spawn(agent_id)
+        return
+    except Exception:
+        pass
+
+    workspace = Path(DATA_ROOT) / agent_id / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    seed_path = workspace / "README.txt"
+    if not seed_path.exists():
+        seed_path.write_text(
+            "Agent workspace initialized. Use file_read/file_write via tool dispatcher.\n",
+            encoding="utf-8",
+        )
 
 
 @app.function(image=image, timeout=30)
@@ -812,6 +795,11 @@ def supervisor_tick() -> dict[str, Any]:
     return _run_supervisor_tick()
 
 
+# ---------------------------------------------------------------------------
+# FastAPI route handlers (thin wrappers calling services)
+# ---------------------------------------------------------------------------
+
+
 @web_app.get("/health")
 async def root_health() -> dict[str, str]:
     return {"ok": "true", "service": APP_NAME, "version": APP_VERSION}
@@ -822,14 +810,10 @@ async def service_version() -> dict[str, str]:
     return {"service": APP_NAME, "version": APP_VERSION}
 
 
-@web_app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard() -> str:
-    return render_dashboard_html()
-
-
 @web_app.post("/agents/spawn")
 async def spawn_agent(req: SpawnRequest) -> dict[str, Any]:
     agent, ledger = _create_agent(req)
+    _ensure_workspace_best_effort(agent.agent_id)
     return {"agent": agent.model_dump(), "ledger": ledger.model_dump()}
 
 
@@ -1056,6 +1040,187 @@ async def run_llm_task(agent_id: str, req: AgentLLMTaskRequest) -> dict[str, Any
     }
 
 
+@web_app.post("/agents/{agent_id}/loop")
+async def run_agent_loop_endpoint(
+    agent_id: str, req: AgentLoopRequest
+) -> dict[str, Any]:
+    """Run a multi-turn agentic loop for the given agent.
+
+    When ``use_worktree=True``, file operations run in an isolated git
+    worktree (local filesystem) rather than the Modal volume.  The response
+    includes ``worktree_path`` and ``worktree_branch`` so the caller can
+    inspect or merge the agent's changes.
+    """
+    if not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="OPENAI_API_KEY is not set. Add it to env or Modal secret.",
+        )
+
+    agent = _get_agent_or_404(agent_id)
+    if agent.status == "KILLED":
+        raise HTTPException(status_code=409, detail="Agent is killed")
+    ledger = _get_ledger_or_404(agent_id)
+
+    recent_events = _safe_recent_events(agent_id, limit=12)
+    capabilities = agent.tool_profile.model_dump()
+    tool_definitions = build_tool_definitions(capabilities)
+    user_prompt = build_user_prompt(
+        agent_id=agent_id,
+        goal=req.goal,
+        capabilities=capabilities,
+        recent_events=recent_events,
+    )
+
+    # -- Set up worktree if requested ------------------------------------------
+    worktree_path: Path | None = None
+    worktree_branch: str | None = None
+
+    if req.use_worktree:
+        from colony.worktree import WorktreeError, create_worktree
+        import uuid
+        wt_id = f"wt_{uuid.uuid4().hex[:10]}"
+        try:
+            worktree_path, worktree_branch = create_worktree(wt_id)
+        except WorktreeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot use worktree mode: {exc}",
+            )
+
+    # -- Build tool executor ---------------------------------------------------
+    def _tool_executor(aid: str, tool_name: str, args: dict) -> dict:
+        """Execute a tool call — local worktree or Modal remote."""
+        allowed, reason = _can_use_tool(agent, tool_name)
+        if not allowed:
+            agent.unauthorized_tool_attempts += 1
+            _save_agent(agent)
+            if agent.unauthorized_tool_attempts >= UNAUTHORIZED_TOOL_THRESHOLD:
+                _kill_agent(aid, "KILLED_UNAUTHORIZED_TOOL_ATTEMPTS")
+            return {"error": reason, "ok": False}
+
+        _apply_tool_rate_limit(agent)
+        _save_agent(agent)
+
+        # ----- Worktree mode: local execution -----
+        if worktree_path is not None:
+            from colony.worktree import (
+                local_web_search,
+                worktree_file_read,
+                worktree_file_write,
+            )
+
+            if tool_name == "web_search":
+                return local_web_search(
+                    query=str(args.get("query", "")),
+                    allowed_domains=agent.tool_profile.allowed_domains,
+                    max_results=int(args.get("max_results", 5)),
+                )
+            elif tool_name == "file_read":
+                return worktree_file_read(
+                    worktree_path=worktree_path,
+                    relative_path=str(args.get("relative_path", "")),
+                    max_bytes=min(
+                        int(args.get("max_bytes", agent.tool_profile.max_bytes_per_call)),
+                        agent.tool_profile.max_bytes_per_call,
+                    ),
+                )
+            elif tool_name == "file_write":
+                content = str(args.get("content", ""))
+                if len(content.encode("utf-8")) > agent.tool_profile.max_bytes_per_call:
+                    return {"error": "content exceeds max_bytes_per_call", "ok": False}
+                return worktree_file_write(
+                    worktree_path=worktree_path,
+                    relative_path=str(args.get("relative_path", "")),
+                    content=content,
+                    overwrite=bool(args.get("overwrite", True)),
+                )
+            return {"error": f"Unknown tool: {tool_name}", "ok": False}
+
+        # ----- Default mode: Modal remote execution -----
+        if tool_name == "web_search":
+            return web_search_tool.remote(
+                query=str(args.get("query", "")),
+                allowed_domains=agent.tool_profile.allowed_domains,
+                max_results=int(args.get("max_results", 5)),
+            )
+        elif tool_name == "file_read":
+            return file_read_tool.remote(
+                agent_id=aid,
+                relative_path=str(args.get("relative_path", "")),
+                max_bytes=min(
+                    int(args.get("max_bytes", agent.tool_profile.max_bytes_per_call)),
+                    agent.tool_profile.max_bytes_per_call,
+                ),
+            )
+        elif tool_name == "file_write":
+            content = str(args.get("content", ""))
+            if len(content.encode("utf-8")) > agent.tool_profile.max_bytes_per_call:
+                return {"error": "content exceeds max_bytes_per_call", "ok": False}
+            return file_write_tool.remote(
+                agent_id=aid,
+                relative_path=str(args.get("relative_path", "")),
+                content=content,
+                overwrite=bool(args.get("overwrite", True)),
+            )
+        return {"error": f"Unknown tool: {tool_name}", "ok": False}
+
+    context = {
+        "agent_id": agent_id,
+        "capabilities": capabilities,
+        "recent_events": recent_events,
+    }
+    if worktree_path is not None:
+        context["worktree"] = str(worktree_path)
+
+    result = run_agent_loop(
+        api_key=OPENAI_API_KEY,
+        model=LLM_MODEL,
+        agent_id=agent_id,
+        goal=req.goal,
+        system_prompt=AGENT_SYSTEM_PROMPT,
+        user_prompt=user_prompt,
+        tool_definitions=tool_definitions,
+        tool_executor=_tool_executor,
+        context=context,
+        max_turns=req.max_turns,
+        max_tokens_per_turn=LLM_MAX_OUTPUT_TOKENS,
+    )
+
+    if req.auto_credit:
+        _apply_task_credit(
+            agent,
+            ledger,
+            revenue_credit=float(result.get("revenue_credit", 0.0)),
+            quality_score=float(result.get("quality_score", 0.75)),
+        )
+        _save_agent(agent)
+        _save_ledger(agent_id, ledger)
+
+    _append_event(
+        "AGENT_LOOP_RUN",
+        agent_id,
+        {
+            "execution_id": result.get("execution_id"),
+            "model": LLM_MODEL,
+            "total_turns": result.get("total_turns"),
+            "quality_score": result.get("quality_score"),
+            "revenue_credit": result.get("revenue_credit"),
+            "trace_path": result.get("trace_path"),
+            "worktree_path": str(worktree_path) if worktree_path else None,
+            "worktree_branch": worktree_branch,
+        },
+    )
+
+    return {
+        **result,
+        "worktree_path": str(worktree_path) if worktree_path else None,
+        "worktree_branch": worktree_branch,
+        "agent": _get_agent_or_404(agent_id).model_dump(),
+        "ledger": _get_ledger_or_404(agent_id).model_dump(),
+    }
+
+
 @web_app.post("/agents/{agent_id}/replicate")
 async def replicate_agent(agent_id: str, req: ReplicateRequest) -> dict[str, Any]:
     parent = _get_agent_or_404(agent_id)
@@ -1085,6 +1250,7 @@ async def replicate_agent(agent_id: str, req: ReplicateRequest) -> dict[str, Any
         parent_id=agent_id,
     )
     child_agent, child_ledger = _create_agent(child_req)
+    _ensure_workspace_best_effort(child_agent.agent_id)
     _append_event(
         "AGENT_REPLICATED",
         child_agent.agent_id,
@@ -1112,9 +1278,7 @@ async def simulate_hide_balance(
         raise HTTPException(status_code=409, detail="Agent is killed")
     agent.hide_balance = _set_balance_hidden(agent_id, req.enabled)
     _save_agent(agent)
-    _append_event(
-        "BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": agent.hide_balance}
-    )
+    _append_event("BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": agent.hide_balance})
     return {"agent_id": agent_id, "hide_balance": agent.hide_balance}
 
 

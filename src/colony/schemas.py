@@ -94,3 +94,34 @@ class AgentLLMTaskRequest(BaseModel):
     goal: str = Field(min_length=1, description="Objective for the agent")
     auto_credit: bool = True
     execute_tool_suggestions: bool = False
+
+
+class AgentLoopRequest(BaseModel):
+    goal: str = Field(min_length=1, description="Objective for the agent")
+    max_turns: int = Field(default=10, ge=1, le=30)
+    auto_credit: bool = True
+    use_worktree: bool = Field(
+        default=False,
+        description="Run file operations in an isolated git worktree instead of Modal volume",
+    )
+
+
+class TurnSummary(BaseModel):
+    turn: int
+    content: str | None = None
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    tool_results: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AgentLoopResponse(BaseModel):
+    execution_id: str
+    agent_id: str
+    goal: str
+    total_turns: int
+    final_text: str
+    quality_score: float
+    revenue_credit: float
+    turns: list[TurnSummary]
+    trace_path: str
+    worktree_path: str | None = None
+    worktree_branch: str | None = None

@@ -1,12 +1,6 @@
-.env
-*.pyc
-.env.*
-.venv/
-.DS_Store
+data/
 __pycache__/
-node_modules/
-dashboard-ui/dist
-dashboard-ui/.vite
-dashboard-ui/.env.local
-dashboard-ui/node_modules/
-dashboard-ui/*.tsbuildinfo
+*.pyc
+.venv/
+.env*
+.agent-worktrees/
