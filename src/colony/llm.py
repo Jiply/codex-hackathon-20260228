@@ -121,4 +121,3 @@ def run_agent_task_plan(
         "tool_calls": tool_calls,
         "raw_text": text,
     }
-

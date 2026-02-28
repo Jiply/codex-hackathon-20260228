@@ -40,4 +40,3 @@ def resolve_workspace_path(data_root: str, agent_id: str, relative_path: str) ->
     if not str(candidate).startswith(str(base)):
         raise ValueError("Path escapes agent workspace")
     return candidate
-
