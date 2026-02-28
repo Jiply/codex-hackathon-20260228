@@ -1,4 +1,8 @@
-data/
-__pycache__/
-*.pyc
+.env.*
 .venv/
+.DS_Store
+node_modules/
+dashboard-ui/dist
+dashboard-ui/.vite
+dashboard-ui/node_modules
+dashboard-ui/*.tsbuildinfo
