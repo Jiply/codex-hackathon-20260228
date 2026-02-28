@@ -1,0 +1,2 @@
+"""Mortal Replicator colony package."""
+

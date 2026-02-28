@@ -1,0 +1,16 @@
+[project]
+name = "mortal-replicator-colony"
+version = "0.1.0"
+description = "Modal V1 control plane for Mortal Replicator"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116.0",
+  "httpx>=0.27.0",
+  "modal>=0.75.0",
+  "openai>=2.0.0",
+  "pydantic>=2.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
