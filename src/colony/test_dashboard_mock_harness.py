@@ -9,7 +9,6 @@ def test_dashboard_includes_mock_mode_harness() -> None:
     assert "?mock=1" in html
 
 
-
 def test_dashboard_event_labels_cover_credit_aliases() -> None:
     html = render_dashboard_html()
 

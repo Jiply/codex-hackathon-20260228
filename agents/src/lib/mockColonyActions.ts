@@ -130,7 +130,10 @@ function eventTimeIso(): string {
   return new Date().toISOString();
 }
 
-function commitEvent(state: MockTransitionState, spec: EventSpec): Pick<MockTransitionResult, "events" | "event" | "nextSeq"> {
+function commitEvent(
+  state: MockTransitionState,
+  spec: EventSpec,
+): Pick<MockTransitionResult, "events" | "event" | "nextSeq"> {
   const event: MockColonyEvent = {
     seq: state.nextSeq,
     type: spec.type,
@@ -146,7 +149,11 @@ function commitEvent(state: MockTransitionState, spec: EventSpec): Pick<MockTran
   };
 }
 
-function withLedgerMutation(ledger: MockLedgerRecord[], agentId: string, mutate: (item: MockLedgerRecord) => LedgerMutation): MockLedgerRecord[] {
+function withLedgerMutation(
+  ledger: MockLedgerRecord[],
+  agentId: string,
+  mutate: (item: MockLedgerRecord) => LedgerMutation,
+): MockLedgerRecord[] {
   return ledger.map((item) => {
     if (item.agent_id !== agentId) return item;
     const patch = mutate(item);
@@ -392,7 +399,8 @@ export function applyMockTickTransition(state: MockTransitionState): MockTransit
 
     const ledger = state.ledger.find((entry) => entry.agent_id === agent.agent_id);
     const nextBalance = (ledger?.balance ?? 0) - (ledger?.rent_per_tick ?? 0.14);
-    const nextMargin = (ledger?.net_margin_24h ?? 0) - (ledger?.rent_per_tick ?? 0.14) * 0.22 + (agent.quality_rolling > 0.72 ? 0.12 : 0);
+    const nextMargin =
+      (ledger?.net_margin_24h ?? 0) - (ledger?.rent_per_tick ?? 0.14) * 0.22 + (agent.quality_rolling > 0.72 ? 0.12 : 0);
 
     if (nextBalance < -0.55) {
       killed += 1;

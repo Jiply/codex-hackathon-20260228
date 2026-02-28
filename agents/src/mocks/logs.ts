@@ -61,7 +61,10 @@ export function generateSidebarLog(anchorMs: number, position: number, agentIds:
             ? "SUPERVISOR_TICK"
             : "API_HEALTH_PULSE";
   const agentId = agentIds[seededNumber(`${seed}:agent`, agentIds.length)];
-  const tool = channel === "TOOL" ? SIDEBAR_LOG_FALLBACK_TOOLS[seededNumber(`${seed}:tool`, SIDEBAR_LOG_FALLBACK_TOOLS.length)] : undefined;
+  const tool =
+    channel === "TOOL"
+      ? SIDEBAR_LOG_FALLBACK_TOOLS[seededNumber(`${seed}:tool`, SIDEBAR_LOG_FALLBACK_TOOLS.length)]
+      : undefined;
   const modalApp =
     channel === "MODAL" || channel === "SYSTEM"
       ? SIDEBAR_LOG_FALLBACK_MODAL_APPS[seededNumber(`${seed}:modal`, SIDEBAR_LOG_FALLBACK_MODAL_APPS.length)]

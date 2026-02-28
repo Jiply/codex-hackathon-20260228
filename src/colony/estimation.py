@@ -99,8 +99,12 @@ def parse_description(description: str, title: str = "") -> dict[str, Any]:
     complexity_hits = len(keywords & complexity_markers)
     uncertainty_hits = len(keywords & uncertainty_markers)
 
-    complexity_score = _clamp(0.2 + 0.08 * complexity_hits + 0.002 * word_count, 0.1, 1.0)
-    uncertainty_score = _clamp(0.15 + 0.1 * uncertainty_hits + 0.0015 * word_count, 0.05, 1.0)
+    complexity_score = _clamp(
+        0.2 + 0.08 * complexity_hits + 0.002 * word_count, 0.1, 1.0
+    )
+    uncertainty_score = _clamp(
+        0.15 + 0.1 * uncertainty_hits + 0.0015 * word_count, 0.05, 1.0
+    )
     required_tools_estimated = _estimate_required_tools(keywords)
 
     return {
@@ -151,10 +155,16 @@ def estimate_task_from_description(
         0.4 + complexity * 0.75 + uncertainty * 0.4 - 0.25 * domain_fit
     )
     raw_cost *= 1.0 - 0.2 * estimation_skill
-    estimated_cost_base = max(0.01, raw_cost * (1.0 + _clamp(cost_bias * 0.35, -0.3, 0.8)))
+    estimated_cost_base = max(
+        0.01, raw_cost * (1.0 + _clamp(cost_bias * 0.35, -0.3, 0.8))
+    )
 
-    raw_payout = advertised_payout * (0.35 + 0.65 * (0.55 * domain_fit + 0.45 * tool_fit))
-    estimated_payout = max(0.0, raw_payout * (1.0 + _clamp(payout_bias * 0.4, -0.5, 0.3)))
+    raw_payout = advertised_payout * (
+        0.35 + 0.65 * (0.55 * domain_fit + 0.45 * tool_fit)
+    )
+    estimated_payout = max(
+        0.0, raw_payout * (1.0 + _clamp(payout_bias * 0.4, -0.5, 0.3))
+    )
 
     raw_success = (
         0.18
@@ -163,7 +173,9 @@ def estimate_task_from_description(
         - 0.2 * complexity
         - 0.12 * uncertainty
     )
-    estimated_success_prob = _clamp(raw_success + _clamp(success_bias * 0.3, -0.2, 0.2), 0.03, 0.98)
+    estimated_success_prob = _clamp(
+        raw_success + _clamp(success_bias * 0.3, -0.2, 0.2), 0.03, 0.98
+    )
 
     confidence = _clamp(
         0.2
@@ -239,8 +251,12 @@ def update_estimation_memory(
     next_samples = samples + 1
 
     est_cost = float(estimate.get("cost_estimator", {}).get("estimated_cost_base", 0.0))
-    est_payout = float(estimate.get("success_estimator", {}).get("estimated_payout", 0.0))
-    est_success = float(estimate.get("success_estimator", {}).get("estimated_success_prob", 0.0))
+    est_payout = float(
+        estimate.get("success_estimator", {}).get("estimated_payout", 0.0)
+    )
+    est_success = float(
+        estimate.get("success_estimator", {}).get("estimated_success_prob", 0.0)
+    )
 
     actual_cost = float(settlement.get("actual_cost", 0.0))
     actual_payout = float(settlement.get("actual_payout", 0.0))
@@ -265,4 +281,3 @@ def update_estimation_memory(
         "success_bias": round(_clamp(next_success, -1.0, 1.0), 6),
         "last_updated": updated_at,
     }
-

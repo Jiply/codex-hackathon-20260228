@@ -212,8 +212,7 @@ def build_user_prompt(
         )
     else:
         sections.append(
-            "## Recent Events\n\nNo prior events recorded. This may be your "
-            "first task."
+            "## Recent Events\n\nNo prior events recorded. This may be your first task."
         )
 
     sections.append(

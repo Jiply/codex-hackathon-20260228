@@ -1,4 +1,5 @@
 """OpenAI Responses API tool definitions for colony agents."""
+
 from __future__ import annotations
 
 

@@ -286,7 +286,9 @@ def _apply_task_credit(
     ledger.balance = round(ledger.balance + revenue_credit, 4)
     ledger.revenue_24h = round(ledger.revenue_24h + revenue_credit, 4)
     ledger.net_margin_24h = round(ledger.revenue_24h - ledger.cost_24h, 4)
-    agent.quality_rolling = round((agent.quality_rolling * 0.7) + (quality_score * 0.3), 4)
+    agent.quality_rolling = round(
+        (agent.quality_rolling * 0.7) + (quality_score * 0.3), 4
+    )
     if agent.status in {"SPAWNED", "FLAGGED"}:
         agent.status = "ACTIVE"
 

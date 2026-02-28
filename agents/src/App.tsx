@@ -11,28 +11,14 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import {
-  Background,
-  Controls,
-  MarkerType,
-  ReactFlow,
-  type Edge,
-  type Node,
-  type ReactFlowInstance,
-} from "@xyflow/react";
+import { Background, Controls, MarkerType, ReactFlow, type Edge, type Node, type ReactFlowInstance } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Sidebar,
   SidebarContent,
@@ -269,7 +255,9 @@ function renderBranchLabel(data: BranchNodeData): JSX.Element {
       </div>
       <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
         <span>health {Math.round(data.health)}%</span>
-        <span className={cn("font-code", data.margin >= 0 ? "text-primary/90" : "text-destructive/90")}>{data.margin.toFixed(2)}</span>
+        <span className={cn("font-code", data.margin >= 0 ? "text-primary/90" : "text-destructive/90")}>
+          {data.margin.toFixed(2)}
+        </span>
       </div>
     </div>
   );
@@ -411,7 +399,9 @@ export default function App(): JSX.Element {
 
   const branchPreviews = useMemo<BranchPreview[]>(() => {
     const branchAgents = agents.length ? agents : SNAPSHOT_AGENTS;
-    const branchLedgerByAgentId = agents.length ? ledgerByAgentId : new Map(SNAPSHOT_LEDGER.map((item) => [item.agent_id, item]));
+    const branchLedgerByAgentId = agents.length
+      ? ledgerByAgentId
+      : new Map(SNAPSHOT_LEDGER.map((item) => [item.agent_id, item]));
 
     return branchAgents.map((agent, index) => {
       const ledgerForAgent = branchLedgerByAgentId.get(agent.agent_id);
@@ -481,8 +471,7 @@ export default function App(): JSX.Element {
 
       stack.add(id);
       const children = childrenByParent.get(id) ?? [];
-      const leafCount =
-        children.length === 0 ? 1 : children.reduce((sum, childId) => sum + leafCountFor(childId, stack), 0);
+      const leafCount = children.length === 0 ? 1 : children.reduce((sum, childId) => sum + leafCountFor(childId, stack), 0);
       stack.delete(id);
       leafCountCache.set(id, leafCount);
       return leafCount;
@@ -696,67 +685,74 @@ export default function App(): JSX.Element {
     return useSnapshot;
   }, [executeRequest]);
 
-  const refreshEvents = useCallback(async (useSnapshot = false) => {
-    const result = await executeRequest(() => colonyApi.getEvents(48));
-    if (!Array.isArray(result.events)) {
-      throw new Error("Invalid events response.");
-    }
-    if (useSnapshot && result.events.length === 0) {
-      ingestEvents(SNAPSHOT_EVENTS);
-      return;
-    }
-    ingestEvents(result.events);
-  }, [executeRequest, ingestEvents]);
-
-  const fetchSidebarLogs = useCallback(async (reset = false) => {
-    if (sidebarLogsLoadingRef.current) return;
-    sidebarLogsLoadingRef.current = true;
-    setSidebarLogsLoading(true);
-    setSidebarLogsError(null);
-
-    if (reset) {
-      sidebarLogsCursorRef.current = null;
-      setSidebarLogsCursor(null);
-    }
-
-    try {
-      const cursor = reset ? null : sidebarLogsCursorRef.current;
-      const result = await executeRequest(() => colonyApi.getLogs(SIDEBAR_LOG_PAGE_SIZE, cursor));
-      if (!Array.isArray(result.logs)) {
-        throw new Error("Invalid logs response.");
+  const refreshEvents = useCallback(
+    async (useSnapshot = false) => {
+      const result = await executeRequest(() => colonyApi.getEvents(48));
+      if (!Array.isArray(result.events)) {
+        throw new Error("Invalid events response.");
       }
-      const nextLogs = result.logs;
+      if (useSnapshot && result.events.length === 0) {
+        ingestEvents(SNAPSHOT_EVENTS);
+        return;
+      }
+      ingestEvents(result.events);
+    },
+    [executeRequest, ingestEvents],
+  );
 
-      const nextCursor = typeof result.next_cursor === "string" && result.next_cursor.length > 0 ? result.next_cursor : null;
-      sidebarLogsCursorRef.current = nextCursor;
-      setSidebarLogsCursor(nextCursor);
+  const fetchSidebarLogs = useCallback(
+    async (reset = false) => {
+      if (sidebarLogsLoadingRef.current) return;
+      sidebarLogsLoadingRef.current = true;
+      setSidebarLogsLoading(true);
+      setSidebarLogsError(null);
 
-      setSidebarLogs((current) => {
-        const merged = reset ? nextLogs : [...current, ...nextLogs];
-        const deduped = new Map<string, SidebarLogEntry>();
-        merged.forEach((entry) => {
-          if (!entry?.id) return;
-          if (deduped.has(entry.id)) return;
-          deduped.set(entry.id, entry);
+      if (reset) {
+        sidebarLogsCursorRef.current = null;
+        setSidebarLogsCursor(null);
+      }
+
+      try {
+        const cursor = reset ? null : sidebarLogsCursorRef.current;
+        const result = await executeRequest(() => colonyApi.getLogs(SIDEBAR_LOG_PAGE_SIZE, cursor));
+        if (!Array.isArray(result.logs)) {
+          throw new Error("Invalid logs response.");
+        }
+        const nextLogs = result.logs;
+
+        const nextCursor =
+          typeof result.next_cursor === "string" && result.next_cursor.length > 0 ? result.next_cursor : null;
+        sidebarLogsCursorRef.current = nextCursor;
+        setSidebarLogsCursor(nextCursor);
+
+        setSidebarLogs((current) => {
+          const merged = reset ? nextLogs : [...current, ...nextLogs];
+          const deduped = new Map<string, SidebarLogEntry>();
+          merged.forEach((entry) => {
+            if (!entry?.id) return;
+            if (deduped.has(entry.id)) return;
+            deduped.set(entry.id, entry);
+          });
+          return Array.from(deduped.values());
         });
-        return Array.from(deduped.values());
-      });
-    } catch {
-      const fallbackPage = generateSidebarLogPage(
-        reset ? null : sidebarLogsCursorRef.current,
-        SIDEBAR_LOG_PAGE_SIZE,
-        sidebarLogAgentPool,
-        SNAPSHOT_LOG_ANCHOR_MS,
-      );
-      sidebarLogsCursorRef.current = fallbackPage.nextCursor;
-      setSidebarLogsCursor(fallbackPage.nextCursor);
-      setSidebarLogs((current) => (reset ? fallbackPage.logs : [...current, ...fallbackPage.logs]));
-      setSidebarLogsError("Log stream switched to local stream.");
-    } finally {
-      sidebarLogsLoadingRef.current = false;
-      setSidebarLogsLoading(false);
-    }
-  }, [executeRequest, sidebarLogAgentPool]);
+      } catch {
+        const fallbackPage = generateSidebarLogPage(
+          reset ? null : sidebarLogsCursorRef.current,
+          SIDEBAR_LOG_PAGE_SIZE,
+          sidebarLogAgentPool,
+          SNAPSHOT_LOG_ANCHOR_MS,
+        );
+        sidebarLogsCursorRef.current = fallbackPage.nextCursor;
+        setSidebarLogsCursor(fallbackPage.nextCursor);
+        setSidebarLogs((current) => (reset ? fallbackPage.logs : [...current, ...fallbackPage.logs]));
+        setSidebarLogsError("Log stream switched to local stream.");
+      } finally {
+        sidebarLogsLoadingRef.current = false;
+        setSidebarLogsLoading(false);
+      }
+    },
+    [executeRequest, sidebarLogAgentPool],
+  );
 
   const handleSidebarLogScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
@@ -803,7 +799,8 @@ export default function App(): JSX.Element {
         setBackendMode("mock-fallback");
         const fallbackResult = config.fallback();
         applyMockTransition(fallbackResult);
-        const fallbackNodes = fallbackResult.touchedAgentIds.length > 0 ? fallbackResult.touchedAgentIds : (config.pulseNodeIds ?? []);
+        const fallbackNodes =
+          fallbackResult.touchedAgentIds.length > 0 ? fallbackResult.touchedAgentIds : (config.pulseNodeIds ?? []);
         markNodeActivity([...fallbackNodes, ...(config.pulseRoot ? ["root"] : [])], config.kind);
       } finally {
         setLoadingAction(null);
@@ -877,7 +874,12 @@ export default function App(): JSX.Element {
                   <SidebarMenuButton onClick={() => setSidebarDialog({ kind: "margin" })}>
                     <TrendingUp className="h-3.5 w-3.5 shrink-0" />
                     <span>margin</span>
-                    <span className={cn("ml-auto font-code", metrics.totalMargin >= 0 ? "text-primary/90" : "text-destructive/90")}>
+                    <span
+                      className={cn(
+                        "ml-auto font-code",
+                        metrics.totalMargin >= 0 ? "text-primary/90" : "text-destructive/90",
+                      )}
+                    >
                       {metrics.totalMargin.toFixed(2)}
                     </span>
                   </SidebarMenuButton>
@@ -921,7 +923,10 @@ export default function App(): JSX.Element {
                   <span className="font-code">{sidebarLogs[0] ? formatClock(sidebarLogs[0].ts) : "--:--"}</span>
                 </div>
 
-                <div className="max-h-[44vh] overflow-auto rounded-sm border border-border/70 bg-background/55" onScroll={handleSidebarLogScroll}>
+                <div
+                  className="max-h-[44vh] overflow-auto rounded-sm border border-border/70 bg-background/55"
+                  onScroll={handleSidebarLogScroll}
+                >
                   {sidebarLogs.map((entry) => (
                     <div key={entry.id} className="border-b border-border/60 px-2.5 py-2 last:border-b-0">
                       <div className="flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
@@ -938,30 +943,50 @@ export default function App(): JSX.Element {
                         </Badge>
                       </div>
 
-                      <p className="mt-1 text-[11px] leading-relaxed text-foreground/85">{scrubStatusLanguage(entry.summary)}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-foreground/85">
+                        {scrubStatusLanguage(entry.summary)}
+                      </p>
 
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         <Badge variant={LOG_CHANNEL_BADGE[entry.channel]} className="px-1.5 py-[1px] text-[8px]">
                           {entry.channel.toLowerCase()}
                         </Badge>
-                        {entry.agentId ? <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">{entry.agentId}</span> : null}
-                        {entry.tool ? <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">{entry.tool}</span> : null}
+                        {entry.agentId ? (
+                          <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">
+                            {entry.agentId}
+                          </span>
+                        ) : null}
+                        {entry.tool ? (
+                          <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">
+                            {entry.tool}
+                          </span>
+                        ) : null}
                         {entry.modalApp ? (
-                          <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">{entry.modalApp}</span>
+                          <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">
+                            {entry.modalApp}
+                          </span>
                         ) : null}
                         {entry.durationMs ? (
-                          <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">{entry.durationMs}ms</span>
+                          <span className="font-code text-[9px] uppercase tracking-[0.14em] text-foreground/75">
+                            {entry.durationMs}ms
+                          </span>
                         ) : null}
                       </div>
 
-                      <p className="mt-1 font-code text-[9px] leading-relaxed text-muted-foreground">{scrubStatusLanguage(entry.details)}</p>
+                      <p className="mt-1 font-code text-[9px] leading-relaxed text-muted-foreground">
+                        {scrubStatusLanguage(entry.details)}
+                      </p>
                     </div>
                   ))}
                   {!sidebarLogsLoading && !sidebarLogsError && sidebarLogs.length === 0 ? (
-                    <p className="px-2.5 py-6 text-center text-[10px] uppercase tracking-[0.18em] text-muted-foreground">No log records yet.</p>
+                    <p className="px-2.5 py-6 text-center text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      No log records yet.
+                    </p>
                   ) : null}
                   {sidebarLogsLoading ? (
-                    <p className="px-2.5 py-2 text-[9px] uppercase tracking-[0.16em] text-muted-foreground">Loading more logs...</p>
+                    <p className="px-2.5 py-2 text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                      Loading more logs...
+                    </p>
                   ) : null}
                   {sidebarLogsError ? (
                     <p className="px-2.5 py-2 text-[9px] uppercase tracking-[0.16em] text-destructive/90">
@@ -1015,14 +1040,17 @@ export default function App(): JSX.Element {
                       }),
                     ),
                   fallback: () =>
-                    applyMockSpawnTransition({
-                      agents,
-                      ledger,
-                      events,
-                      nextSeq: nextLocalEventSeqRef.current,
-                    }, {
-                      initialBalance: Number(spawnBalance) || 2.0,
-                    }),
+                    applyMockSpawnTransition(
+                      {
+                        agents,
+                        ledger,
+                        events,
+                        nextSeq: nextLocalEventSeqRef.current,
+                      },
+                      {
+                        initialBalance: Number(spawnBalance) || 2.0,
+                      },
+                    ),
                   successMessage: "Agent spawned.",
                   pulseRoot: true,
                 });
@@ -1085,7 +1113,9 @@ export default function App(): JSX.Element {
                 <p className="mt-1 text-[13px] text-foreground/85">Lineage map for behavior and survivability.</p>
               </div>
               <div className="flex items-center gap-1.5">
-                <Badge variant="success">{branchPreviews.filter((node) => node.stage === "PROFITABLE").length} profitable</Badge>
+                <Badge variant="success">
+                  {branchPreviews.filter((node) => node.stage === "PROFITABLE").length} profitable
+                </Badge>
                 <Badge variant="info">{branchPreviews.filter((node) => node.stage === "SPAWNING").length} progressing</Badge>
                 <Badge variant="warning">{branchPreviews.filter((node) => node.stage === "WATCHLIST").length} risk</Badge>
               </div>
@@ -1151,7 +1181,9 @@ export default function App(): JSX.Element {
                             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                               Agent {String(index + 1).padStart(2, "0")}
                             </p>
-                            <p className="mt-1 font-code text-[10px] uppercase tracking-[0.14em] text-foreground/80">{agent.agent_id}</p>
+                            <p className="mt-1 font-code text-[10px] uppercase tracking-[0.14em] text-foreground/80">
+                              {agent.agent_id}
+                            </p>
                           </div>
                           <Badge variant={STATUS_BADGE[agent.status]}>{agent.status.toLowerCase()}</Badge>
                         </div>
@@ -1166,7 +1198,12 @@ export default function App(): JSX.Element {
 
                         <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                           <span>{formatCurrency(ledgerForAgent?.balance ?? 0)}</span>
-                          <span className={cn("font-code", (ledgerForAgent?.net_margin_24h ?? 0) >= 0 ? "text-primary/90" : "text-destructive/90")}>
+                          <span
+                            className={cn(
+                              "font-code",
+                              (ledgerForAgent?.net_margin_24h ?? 0) >= 0 ? "text-primary/90" : "text-destructive/90",
+                            )}
+                          >
                             {(ledgerForAgent?.net_margin_24h ?? 0).toFixed(2)}
                           </span>
                         </div>
@@ -1187,16 +1224,19 @@ export default function App(): JSX.Element {
                                   }),
                                 ),
                               fallback: () =>
-                                applyMockCreditTransition({
-                                  agents,
-                                  ledger,
-                                  events,
-                                  nextSeq: nextLocalEventSeqRef.current,
-                                }, {
-                                  agentId: agent.agent_id,
-                                  revenueCredit: 1.0,
-                                  qualityScore: 0.85,
-                                }),
+                                applyMockCreditTransition(
+                                  {
+                                    agents,
+                                    ledger,
+                                    events,
+                                    nextSeq: nextLocalEventSeqRef.current,
+                                  },
+                                  {
+                                    agentId: agent.agent_id,
+                                    revenueCredit: 1.0,
+                                    qualityScore: 0.85,
+                                  },
+                                ),
                               successMessage: `Credited ${agent.agent_id}.`,
                               pulseNodeIds: [agent.agent_id],
                             });
@@ -1220,15 +1260,18 @@ export default function App(): JSX.Element {
                                   }),
                                 ),
                               fallback: () =>
-                                applyMockReplicateTransition({
-                                  agents,
-                                  ledger,
-                                  events,
-                                  nextSeq: nextLocalEventSeqRef.current,
-                                }, {
-                                  agentId: agent.agent_id,
-                                  childInitialBalance: 1.0,
-                                }),
+                                applyMockReplicateTransition(
+                                  {
+                                    agents,
+                                    ledger,
+                                    events,
+                                    nextSeq: nextLocalEventSeqRef.current,
+                                  },
+                                  {
+                                    agentId: agent.agent_id,
+                                    childInitialBalance: 1.0,
+                                  },
+                                ),
                               successMessage: `Replication issued from ${agent.agent_id}.`,
                               pulseNodeIds: [agent.agent_id],
                             });
@@ -1252,15 +1295,18 @@ export default function App(): JSX.Element {
                                   }),
                                 ),
                               fallback: () =>
-                                applyMockHideBalanceTransition({
-                                  agents,
-                                  ledger,
-                                  events,
-                                  nextSeq: nextLocalEventSeqRef.current,
-                                }, {
-                                  agentId: agent.agent_id,
-                                  enabled: !agent.hide_balance,
-                                }),
+                                applyMockHideBalanceTransition(
+                                  {
+                                    agents,
+                                    ledger,
+                                    events,
+                                    nextSeq: nextLocalEventSeqRef.current,
+                                  },
+                                  {
+                                    agentId: agent.agent_id,
+                                    enabled: !agent.hide_balance,
+                                  },
+                                ),
                               successMessage: `${agent.hide_balance ? "Unmasked" : "Masked"} balance for ${agent.agent_id}.`,
                               pulseNodeIds: [agent.agent_id],
                             });
@@ -1284,15 +1330,18 @@ export default function App(): JSX.Element {
                                   }),
                                 ),
                               fallback: () =>
-                                applyMockKillTransition({
-                                  agents,
-                                  ledger,
-                                  events,
-                                  nextSeq: nextLocalEventSeqRef.current,
-                                }, {
-                                  agentId: agent.agent_id,
-                                  reason: "MANUAL_DASHBOARD_KILL",
-                                }),
+                                applyMockKillTransition(
+                                  {
+                                    agents,
+                                    ledger,
+                                    events,
+                                    nextSeq: nextLocalEventSeqRef.current,
+                                  },
+                                  {
+                                    agentId: agent.agent_id,
+                                    reason: "MANUAL_DASHBOARD_KILL",
+                                  },
+                                ),
                               successMessage: `${agent.agent_id} terminated.`,
                               pulseNodeIds: [agent.agent_id],
                             });
@@ -1339,7 +1388,9 @@ export default function App(): JSX.Element {
               </p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <Badge variant="outline">lineage {selectedAgent?.parent_id ? "derived" : "root"}</Badge>
-                <Badge variant={selectedAgent?.healthy ? "success" : "warning"}>{selectedAgent?.healthy ? "healthy" : "fragile"}</Badge>
+                <Badge variant={selectedAgent?.healthy ? "success" : "warning"}>
+                  {selectedAgent?.healthy ? "healthy" : "fragile"}
+                </Badge>
               </div>
             </section>
           </aside>
@@ -1357,182 +1408,213 @@ export default function App(): JSX.Element {
                   ? "Agent Dashboard"
                   : `${dialogAgent?.agent_id ?? "Agent"} Dashboard`}
             </DialogTitle>
-            <DialogDescription className="sr-only">Expanded dashboard view for sidebar margin and agent telemetry.</DialogDescription>
+            <DialogDescription className="sr-only">
+              Expanded dashboard view for sidebar margin and agent telemetry.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
             {sidebarDialog?.kind === "margin" ? (
-                <div className="space-y-4">
-                  <div className="grid gap-2 md:grid-cols-3">
-                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Net margin (24h)</p>
-                      <p className={cn("mt-1 text-[24px] font-medium", metrics.totalMargin >= 0 ? "text-primary/90" : "text-destructive/90")}>
-                        {metrics.totalMargin.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Profitable agents</p>
-                      <p className="mt-1 text-[24px] font-medium text-foreground">
-                        {marginRows.filter((row) => row.margin > 0).length}
-                      </p>
-                    </div>
-                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Loss agents</p>
-                      <p className="mt-1 text-[24px] font-medium text-foreground">
-                        {marginRows.filter((row) => row.margin <= 0).length}
-                      </p>
-                    </div>
+              <div className="space-y-4">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Net margin (24h)</p>
+                    <p
+                      className={cn(
+                        "mt-1 text-[24px] font-medium",
+                        metrics.totalMargin >= 0 ? "text-primary/90" : "text-destructive/90",
+                      )}
+                    >
+                      {metrics.totalMargin.toFixed(2)}
+                    </p>
                   </div>
-
-                  <div className="rounded-sm border border-border/70 bg-background/60">
-                    <div className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.7fr] gap-3 border-b border-border/70 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                      <span>Agent</span>
-                      <span>Balance</span>
-                      <span>Margin</span>
-                      <span>Status</span>
-                    </div>
-                    <div className="max-h-[420px] overflow-auto">
-                      {marginRows.map((row) => (
-                        <button
-                          key={row.id}
-                          type="button"
-                          className="grid w-full grid-cols-[1.3fr_0.9fr_0.9fr_0.7fr] gap-3 border-b border-border/60 px-3 py-2 text-left text-[12px] transition-colors hover:bg-secondary/40 last:border-b-0"
-                          onClick={() => openAgentDialog(row.id)}
-                        >
-                          <span className="font-code text-foreground">{row.id}</span>
-                          <span className="text-foreground/85">{formatCurrency(row.balance)}</span>
-                          <span className={cn("font-code", row.margin >= 0 ? "text-primary/90" : "text-destructive/90")}>{row.margin.toFixed(2)}</span>
-                          <span className="text-foreground/85">{row.status.toLowerCase()}</span>
-                        </button>
-                      ))}
-                      {!marginRows.length ? <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No margin data yet.</p> : null}
-                    </div>
+                  <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Profitable agents</p>
+                    <p className="mt-1 text-[24px] font-medium text-foreground">
+                      {marginRows.filter((row) => row.margin > 0).length}
+                    </p>
+                  </div>
+                  <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Loss agents</p>
+                    <p className="mt-1 text-[24px] font-medium text-foreground">
+                      {marginRows.filter((row) => row.margin <= 0).length}
+                    </p>
                   </div>
                 </div>
+
+                <div className="rounded-sm border border-border/70 bg-background/60">
+                  <div className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.7fr] gap-3 border-b border-border/70 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <span>Agent</span>
+                    <span>Balance</span>
+                    <span>Margin</span>
+                    <span>Status</span>
+                  </div>
+                  <div className="max-h-[420px] overflow-auto">
+                    {marginRows.map((row) => (
+                      <button
+                        key={row.id}
+                        type="button"
+                        className="grid w-full grid-cols-[1.3fr_0.9fr_0.9fr_0.7fr] gap-3 border-b border-border/60 px-3 py-2 text-left text-[12px] transition-colors hover:bg-secondary/40 last:border-b-0"
+                        onClick={() => openAgentDialog(row.id)}
+                      >
+                        <span className="font-code text-foreground">{row.id}</span>
+                        <span className="text-foreground/85">{formatCurrency(row.balance)}</span>
+                        <span className={cn("font-code", row.margin >= 0 ? "text-primary/90" : "text-destructive/90")}>
+                          {row.margin.toFixed(2)}
+                        </span>
+                        <span className="text-foreground/85">{row.status.toLowerCase()}</span>
+                      </button>
+                    ))}
+                    {!marginRows.length ? (
+                      <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No margin data yet.</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
             ) : null}
 
             {sidebarDialog?.kind === "agents" ? (
-                <div className="space-y-4">
-                  <div className="grid gap-2 md:grid-cols-4">
-                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Total agents</p>
-                      <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.total}</p>
-                    </div>
-                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Active</p>
-                      <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.active}</p>
-                    </div>
-                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Flagged</p>
-                      <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.flagged}</p>
-                    </div>
-                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Killed</p>
-                      <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.killed}</p>
-                    </div>
+              <div className="space-y-4">
+                <div className="grid gap-2 md:grid-cols-4">
+                  <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Total agents</p>
+                    <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.total}</p>
                   </div>
-
-                  <div className="rounded-sm border border-border/70 bg-background/60">
-                    <div className="grid grid-cols-[1.3fr_0.7fr_0.9fr_0.7fr] gap-3 border-b border-border/70 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                      <span>Agent</span>
-                      <span>Status</span>
-                      <span>Health</span>
-                      <span>Margin</span>
-                    </div>
-                    <div className="max-h-[420px] overflow-auto">
-                      {agents.map((agent) => {
-                        const agentLedger = ledgerByAgentId.get(agent.agent_id);
-                        const healthPct = normalize(agent.healthy ? agent.quality_rolling * 100 : 8);
-                        const margin = agentLedger?.net_margin_24h ?? 0;
-                        return (
-                          <button
-                            key={agent.agent_id}
-                            type="button"
-                            className="grid w-full grid-cols-[1.3fr_0.7fr_0.9fr_0.7fr] gap-3 border-b border-border/60 px-3 py-2 text-left text-[12px] transition-colors hover:bg-secondary/40 last:border-b-0"
-                            onClick={() => openAgentDialog(agent.agent_id)}
-                          >
-                            <span className="font-code text-foreground">{agent.agent_id}</span>
-                            <span className="text-foreground/85">{agent.status.toLowerCase()}</span>
-                            <span className="text-foreground/85">{Math.round(healthPct)}%</span>
-                            <span className={cn("font-code", margin >= 0 ? "text-primary/90" : "text-destructive/90")}>{margin.toFixed(2)}</span>
-                          </button>
-                        );
-                      })}
-                      {!agents.length ? <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No agents yet.</p> : null}
-                    </div>
+                  <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Active</p>
+                    <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.active}</p>
+                  </div>
+                  <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Flagged</p>
+                    <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.flagged}</p>
+                  </div>
+                  <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Killed</p>
+                    <p className="mt-1 text-[24px] font-medium text-foreground">{metrics.killed}</p>
                   </div>
                 </div>
+
+                <div className="rounded-sm border border-border/70 bg-background/60">
+                  <div className="grid grid-cols-[1.3fr_0.7fr_0.9fr_0.7fr] gap-3 border-b border-border/70 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <span>Agent</span>
+                    <span>Status</span>
+                    <span>Health</span>
+                    <span>Margin</span>
+                  </div>
+                  <div className="max-h-[420px] overflow-auto">
+                    {agents.map((agent) => {
+                      const agentLedger = ledgerByAgentId.get(agent.agent_id);
+                      const healthPct = normalize(agent.healthy ? agent.quality_rolling * 100 : 8);
+                      const margin = agentLedger?.net_margin_24h ?? 0;
+                      return (
+                        <button
+                          key={agent.agent_id}
+                          type="button"
+                          className="grid w-full grid-cols-[1.3fr_0.7fr_0.9fr_0.7fr] gap-3 border-b border-border/60 px-3 py-2 text-left text-[12px] transition-colors hover:bg-secondary/40 last:border-b-0"
+                          onClick={() => openAgentDialog(agent.agent_id)}
+                        >
+                          <span className="font-code text-foreground">{agent.agent_id}</span>
+                          <span className="text-foreground/85">{agent.status.toLowerCase()}</span>
+                          <span className="text-foreground/85">{Math.round(healthPct)}%</span>
+                          <span className={cn("font-code", margin >= 0 ? "text-primary/90" : "text-destructive/90")}>
+                            {margin.toFixed(2)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {!agents.length ? (
+                      <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No agents yet.</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
             ) : null}
 
             {sidebarDialog?.kind === "agent" ? (
-                <div className="space-y-4">
-                  {dialogAgent ? (
-                    <>
-                      <div className="grid gap-2 md:grid-cols-4">
-                        <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Agent</p>
-                          <div className="mt-2 flex items-center gap-2.5">
-                            <img
-                              src={buildAgentAvatarUrl(dialogAgent.agent_id)}
-                              alt={`Pixel avatar for ${dialogAgent.agent_id}`}
-                              className="h-12 w-12 rounded-sm border border-border/70 bg-muted/60 p-0.5"
-                              style={{ imageRendering: "pixelated" }}
-                              onError={(event) => {
-                                event.currentTarget.onerror = null;
-                                event.currentTarget.src = agentPlaceholderAvatar;
-                              }}
-                            />
-                            <p className="font-code text-[14px] text-foreground">{dialogAgent.agent_id}</p>
-                          </div>
-                        </div>
-                        <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
-                          <p className="mt-1 text-[14px] text-foreground">{dialogAgent.status.toLowerCase()}</p>
-                        </div>
-                        <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Balance</p>
-                          <p className="mt-1 text-[14px] text-foreground">{formatCurrency(dialogLedger?.balance ?? 0)}</p>
-                        </div>
-                        <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Margin</p>
-                          <p className={cn("mt-1 text-[14px]", (dialogLedger?.net_margin_24h ?? 0) >= 0 ? "text-primary/90" : "text-destructive/90")}>
-                            {(dialogLedger?.net_margin_24h ?? 0).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-
+              <div className="space-y-4">
+                {dialogAgent ? (
+                  <>
+                    <div className="grid gap-2 md:grid-cols-4">
                       <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
-                        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                          <span>Health</span>
-                          <span>{Math.round(normalize(dialogAgent.healthy ? dialogAgent.quality_rolling * 100 : 8))}%</span>
-                        </div>
-                        <Progress value={normalize(dialogAgent.healthy ? dialogAgent.quality_rolling * 100 : 8)} className="mt-2 h-2" />
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          <Badge variant="outline">lineage {dialogAgent.parent_id ? "derived" : "root"}</Badge>
-                          <Badge variant={dialogAgent.healthy ? "success" : "warning"}>{dialogAgent.healthy ? "healthy" : "fragile"}</Badge>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Agent</p>
+                        <div className="mt-2 flex items-center gap-2.5">
+                          <img
+                            src={buildAgentAvatarUrl(dialogAgent.agent_id)}
+                            alt={`Pixel avatar for ${dialogAgent.agent_id}`}
+                            className="h-12 w-12 rounded-sm border border-border/70 bg-muted/60 p-0.5"
+                            style={{ imageRendering: "pixelated" }}
+                            onError={(event) => {
+                              event.currentTarget.onerror = null;
+                              event.currentTarget.src = agentPlaceholderAvatar;
+                            }}
+                          />
+                          <p className="font-code text-[14px] text-foreground">{dialogAgent.agent_id}</p>
                         </div>
                       </div>
+                      <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+                        <p className="mt-1 text-[14px] text-foreground">{dialogAgent.status.toLowerCase()}</p>
+                      </div>
+                      <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Balance</p>
+                        <p className="mt-1 text-[14px] text-foreground">{formatCurrency(dialogLedger?.balance ?? 0)}</p>
+                      </div>
+                      <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Margin</p>
+                        <p
+                          className={cn(
+                            "mt-1 text-[14px]",
+                            (dialogLedger?.net_margin_24h ?? 0) >= 0 ? "text-primary/90" : "text-destructive/90",
+                          )}
+                        >
+                          {(dialogLedger?.net_margin_24h ?? 0).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
 
-                      <div className="rounded-sm border border-border/70 bg-background/60">
-                        <div className="border-b border-border/70 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Recent agent events</div>
-                        <div className="max-h-[320px] overflow-auto">
-                          {dialogEvents.map((event) => (
-                            <div key={event.seq} className="border-b border-border/60 px-3 py-2 last:border-b-0">
-                              <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-                                <span>{formatClock(event.ts)}</span>
-                                <span>#{event.seq}</span>
-                              </div>
-                              <p className="mt-1 text-[12px] text-foreground/85">{eventHeadline(event)}</p>
-                            </div>
-                          ))}
-                          {!dialogEvents.length ? <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No events for this agent.</p> : null}
-                        </div>
+                    <div className="rounded-sm border border-border/70 bg-background/60 px-3 py-3">
+                      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                        <span>Health</span>
+                        <span>{Math.round(normalize(dialogAgent.healthy ? dialogAgent.quality_rolling * 100 : 8))}%</span>
                       </div>
-                    </>
-                  ) : (
-                    <p className="py-10 text-center text-[12px] text-muted-foreground">This agent is not in the current view.</p>
-                  )}
-                </div>
+                      <Progress
+                        value={normalize(dialogAgent.healthy ? dialogAgent.quality_rolling * 100 : 8)}
+                        className="mt-2 h-2"
+                      />
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        <Badge variant="outline">lineage {dialogAgent.parent_id ? "derived" : "root"}</Badge>
+                        <Badge variant={dialogAgent.healthy ? "success" : "warning"}>
+                          {dialogAgent.healthy ? "healthy" : "fragile"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="rounded-sm border border-border/70 bg-background/60">
+                      <div className="border-b border-border/70 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Recent agent events
+                      </div>
+                      <div className="max-h-[320px] overflow-auto">
+                        {dialogEvents.map((event) => (
+                          <div key={event.seq} className="border-b border-border/60 px-3 py-2 last:border-b-0">
+                            <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+                              <span>{formatClock(event.ts)}</span>
+                              <span>#{event.seq}</span>
+                            </div>
+                            <p className="mt-1 text-[12px] text-foreground/85">{eventHeadline(event)}</p>
+                          </div>
+                        ))}
+                        {!dialogEvents.length ? (
+                          <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No events for this agent.</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="py-10 text-center text-[12px] text-muted-foreground">
+                    This agent is not in the current view.
+                  </p>
+                )}
+              </div>
             ) : null}
           </div>
         </DialogContent>

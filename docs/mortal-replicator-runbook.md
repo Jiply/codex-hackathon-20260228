@@ -7,14 +7,19 @@ Practical runbook for operating the current Modal app (`mortal-replicator-colony
 - From repo root: `/Users/yongquantan/codex-hackathon-20260228`
 - Python 3.11+, `uv`, Modal CLI, `jq`
 - Modal auth is active:
+
 ```bash
 uv run modal whoami
 ```
+
 - Dependencies installed:
+
 ```bash
 uv sync
 ```
+
 - Optional (required only for `/agents/{id}/llm/task`): OpenAI secret exists in Modal:
+
 ```bash
 uv run modal secret create mortal-replicator-secrets OPENAI_API_KEY=<your_key>
 ```
@@ -22,11 +27,13 @@ uv run modal secret create mortal-replicator-secrets OPENAI_API_KEY=<your_key>
 ## Start the app (`modal serve`)
 
 Run in terminal A:
+
 ```bash
 uv run modal serve src/colony/main.py
 ```
 
 From the serve logs, copy the `mortal-replicator-api` URL and set:
+
 ```bash
 export BASE_URL="https://<your-workspace>--mortal-replicator-api.modal.run"
 ```
@@ -40,6 +47,7 @@ open "$BASE_URL/dashboard"   # macOS (or paste in browser)
 ```
 
 Expected:
+
 - `/health` returns `ok=true`, service name, version
 - `/version` returns app version (`0.1.0` unless overridden)
 - `/dashboard` returns HTML dashboard
@@ -47,6 +55,7 @@ Expected:
 ## Manual demo API flow (copy/paste)
 
 1. Spawn an agent:
+
 ```bash
 SPAWN=$(curl -sS -X POST "$BASE_URL/agents/spawn" \
   -H "content-type: application/json" \
@@ -65,6 +74,7 @@ echo "AGENT_ID=$AGENT_ID"
 ```
 
 2. Verify health/versioned behavior for the agent:
+
 ```bash
 curl -sS "$BASE_URL/agents/$AGENT_ID/health" | jq
 curl -sS "$BASE_URL/agents/$AGENT_ID/balance" | jq
@@ -72,6 +82,7 @@ curl -sS "$BASE_URL/agents/$AGENT_ID/capabilities" | jq
 ```
 
 3. Exercise tool calls:
+
 ```bash
 curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/tools/call" \
   -H "content-type: application/json" \
@@ -87,6 +98,7 @@ curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/tools/call" \
 ```
 
 4. Credit a task and run supervisor tick:
+
 ```bash
 curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/task" \
   -H "content-type: application/json" \
@@ -96,6 +108,7 @@ curl -sS -X POST "$BASE_URL/supervisor/tick" | jq
 ```
 
 5. Replicate parent -> child:
+
 ```bash
 curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/replicate" \
   -H "content-type: application/json" \
@@ -103,12 +116,14 @@ curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/replicate" \
 ```
 
 6. Inspect full state/events:
+
 ```bash
 curl -sS "$BASE_URL/colony/state" | jq
 curl -sS "$BASE_URL/colony/events?limit=100" | jq
 ```
 
 7. End demo (manual kill):
+
 ```bash
 curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/kill" \
   -H "content-type: application/json" \
@@ -141,6 +156,7 @@ curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/kill" \
   - Triggered by `/agents/{id}/kill`.
 
 Pull latest kill reason for one agent:
+
 ```bash
 curl -sS "$BASE_URL/colony/events?limit=300" | \
 jq -r --arg id "$AGENT_ID" '.events[] | select(.agent_id==$id and .type=="AGENT_KILLED") | "\(.ts) \(.payload.reason)"'
@@ -156,6 +172,7 @@ jq -r --arg id "$AGENT_ID" '.events[] | select(.agent_id==$id and .type=="AGENT_
 
 - `/agents/{id}/balance` returns `503 Balance endpoint unavailable`:
   - Balance is hidden. Unhide for demo:
+
 ```bash
 curl -sS -X POST "$BASE_URL/agents/$AGENT_ID/simulate/hide-balance" \
   -H "content-type: application/json" \

@@ -12,6 +12,7 @@ pattern is:
 The loop is fully decoupled from Modal — it receives a ``tool_executor``
 callable rather than referencing Modal functions directly.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Execution Trace (per-execution JSONL)
 # ---------------------------------------------------------------------------
 
+
 class ExecutionTrace:
     """Append-only JSONL trace for a single agent execution.
 
@@ -50,12 +52,14 @@ class ExecutionTrace:
         self.path = Path(f"data/executions/{execution_id}.jsonl")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._seq = 0
-        self._append({
-            "type": "execution_start",
-            "execution_id": execution_id,
-            "agent_id": agent_id,
-            "goal": goal,
-        })
+        self._append(
+            {
+                "type": "execution_start",
+                "execution_id": execution_id,
+                "agent_id": agent_id,
+                "goal": goal,
+            }
+        )
 
     def _append(self, record: dict) -> None:
         self._seq += 1
@@ -67,13 +71,15 @@ class ExecutionTrace:
     def log_llm_response(
         self, turn: int, content: str | None, tool_calls: list[dict]
     ) -> None:
-        self._append({
-            "type": "llm_response",
-            "turn": turn,
-            "content": content,
-            "tool_calls": tool_calls,
-            "num_tool_calls": len(tool_calls),
-        })
+        self._append(
+            {
+                "type": "llm_response",
+                "turn": turn,
+                "content": content,
+                "tool_calls": tool_calls,
+                "num_tool_calls": len(tool_calls),
+            }
+        )
 
     def log_tool_result(
         self,
@@ -83,14 +89,16 @@ class ExecutionTrace:
         result: dict,
         duration_ms: int,
     ) -> None:
-        self._append({
-            "type": "tool_result",
-            "turn": turn,
-            "tool": tool_name,
-            "args": args,
-            "result": result,
-            "duration_ms": duration_ms,
-        })
+        self._append(
+            {
+                "type": "tool_result",
+                "turn": turn,
+                "tool": tool_name,
+                "args": args,
+                "result": result,
+                "duration_ms": duration_ms,
+            }
+        )
 
     def log_complete(
         self,
@@ -99,13 +107,15 @@ class ExecutionTrace:
         revenue_credit: float,
         summary: str,
     ) -> None:
-        self._append({
-            "type": "execution_complete",
-            "total_turns": total_turns,
-            "quality_score": quality_score,
-            "revenue_credit": revenue_credit,
-            "summary": summary,
-        })
+        self._append(
+            {
+                "type": "execution_complete",
+                "total_turns": total_turns,
+                "quality_score": quality_score,
+                "revenue_credit": revenue_credit,
+                "summary": summary,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -175,11 +185,13 @@ def _serialize_function_calls(output_items: list) -> list[dict]:
     calls = []
     for item in output_items:
         if getattr(item, "type", None) == "function_call":
-            calls.append({
-                "call_id": item.call_id,
-                "name": item.name,
-                "arguments": item.arguments,
-            })
+            calls.append(
+                {
+                    "call_id": item.call_id,
+                    "name": item.name,
+                    "arguments": item.arguments,
+                }
+            )
     return calls
 
 
@@ -197,6 +209,7 @@ def _extract_text(output_items: list) -> str:
 # ---------------------------------------------------------------------------
 # Main loop
 # ---------------------------------------------------------------------------
+
 
 def run_agent_loop(
     *,
@@ -290,12 +303,14 @@ def run_agent_loop(
             error_msg = f"[LLM_ERROR turn={turn_num}] {type(exc).__name__}: {exc}"
             logger.error("LLM call failed on turn %d: %s", turn_num, exc)
             trace.log_llm_response(turn_num, error_msg, [])
-            turns_log.append({
-                "turn": turn_num,
-                "content": error_msg,
-                "tool_calls": [],
-                "tool_results": [],
-            })
+            turns_log.append(
+                {
+                    "turn": turn_num,
+                    "content": error_msg,
+                    "tool_calls": [],
+                    "tool_results": [],
+                }
+            )
             final_text = error_msg
             break
 
@@ -345,20 +360,24 @@ def run_agent_loop(
 
             # Log tool result to trace
             trace.log_tool_result(turn_num, tool_name, tool_args, result, duration_ms)
-            turn_summary["tool_results"].append({
-                "call_id": fc["call_id"],
-                "tool": tool_name,
-                "args": tool_args,
-                "result": result,
-                "duration_ms": duration_ms,
-            })
+            turn_summary["tool_results"].append(
+                {
+                    "call_id": fc["call_id"],
+                    "tool": tool_name,
+                    "args": tool_args,
+                    "result": result,
+                    "duration_ms": duration_ms,
+                }
+            )
 
             # Append function_call_output for the next LLM turn
-            input_items.append({
-                "type": "function_call_output",
-                "call_id": fc["call_id"],
-                "output": json.dumps(result, default=str),
-            })
+            input_items.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": fc["call_id"],
+                    "output": json.dumps(result, default=str),
+                }
+            )
 
         turns_log.append(turn_summary)
 

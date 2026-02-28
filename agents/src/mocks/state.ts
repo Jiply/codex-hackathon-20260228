@@ -109,10 +109,12 @@ function endpointKeyFor(method: string, pathname: string): { key: EndpointKey | 
   if (normalizedMethod === "POST" && pathname === "/supervisor/tick") return { key: "POST /supervisor/tick" };
 
   const taskMatch = pathname.match(/^\/agents\/([^/]+)\/task$/);
-  if (normalizedMethod === "POST" && taskMatch) return { key: "POST /agents/:id/task", agentId: decodeURIComponent(taskMatch[1]) };
+  if (normalizedMethod === "POST" && taskMatch)
+    return { key: "POST /agents/:id/task", agentId: decodeURIComponent(taskMatch[1]) };
 
   const replicateMatch = pathname.match(/^\/agents\/([^/]+)\/replicate$/);
-  if (normalizedMethod === "POST" && replicateMatch) return { key: "POST /agents/:id/replicate", agentId: decodeURIComponent(replicateMatch[1]) };
+  if (normalizedMethod === "POST" && replicateMatch)
+    return { key: "POST /agents/:id/replicate", agentId: decodeURIComponent(replicateMatch[1]) };
 
   const hideMatch = pathname.match(/^\/agents\/([^/]+)\/simulate\/hide-balance$/);
   if (normalizedMethod === "POST" && hideMatch) {
@@ -120,7 +122,8 @@ function endpointKeyFor(method: string, pathname: string): { key: EndpointKey | 
   }
 
   const killMatch = pathname.match(/^\/agents\/([^/]+)\/kill$/);
-  if (normalizedMethod === "POST" && killMatch) return { key: "POST /agents/:id/kill", agentId: decodeURIComponent(killMatch[1]) };
+  if (normalizedMethod === "POST" && killMatch)
+    return { key: "POST /agents/:id/kill", agentId: decodeURIComponent(killMatch[1]) };
 
   return { key: null };
 }
@@ -229,7 +232,12 @@ class MockColonyStateImpl implements MockColonyState {
     return jsonResponse(payload);
   }
 
-  private routeRequest(key: EndpointKey, agentId: string | undefined, req: MockHttpRequest, fault: EndpointFault): ResponsePayload {
+  private routeRequest(
+    key: EndpointKey,
+    agentId: string | undefined,
+    req: MockHttpRequest,
+    fault: EndpointFault,
+  ): ResponsePayload {
     switch (key) {
       case "GET /version": {
         const response: VersionResponse = {
@@ -310,7 +318,10 @@ class MockColonyStateImpl implements MockColonyState {
       }
       case "POST /agents/:id/kill": {
         if (!agentId) return { status: 400, body: { detail: "Missing agent id" } };
-        const result = this.killAgent(agentId, parseBody<{ reason?: string }>(req.bodyText).reason ?? "MANUAL_DASHBOARD_KILL");
+        const result = this.killAgent(
+          agentId,
+          parseBody<{ reason?: string }>(req.bodyText).reason ?? "MANUAL_DASHBOARD_KILL",
+        );
         return { status: result.status, body: result.body, malformedJson: Boolean(fault.malformedJson) };
       }
       default:
@@ -408,7 +419,10 @@ class MockColonyStateImpl implements MockColonyState {
     };
   }
 
-  private creditTask(agentId: string, req: TaskCreditRequest): { status: number; body: TaskCreditResponse | { detail: string } } {
+  private creditTask(
+    agentId: string,
+    req: TaskCreditRequest,
+  ): { status: number; body: TaskCreditResponse | { detail: string } } {
     const agent = this.ensureAgent(agentId);
     if (!agent) return { status: 404, body: { detail: `Agent ${agentId} not found` } };
     if (agent.status === "KILLED") return { status: 409, body: { detail: "Agent is killed" } };
@@ -421,7 +435,7 @@ class MockColonyStateImpl implements MockColonyState {
 
     ledger.balance = Number((ledger.balance + credit).toFixed(4));
     ledger.net_margin_24h = Number((ledger.net_margin_24h + credit).toFixed(4));
-    agent.quality_rolling = Number(((agent.quality_rolling * 0.7) + (quality * 0.3)).toFixed(4));
+    agent.quality_rolling = Number((agent.quality_rolling * 0.7 + quality * 0.3).toFixed(4));
     if (agent.status === "SPAWNED" || agent.status === "FLAGGED") {
       agent.status = "ACTIVE";
       agent.healthy = true;
@@ -443,7 +457,10 @@ class MockColonyStateImpl implements MockColonyState {
     };
   }
 
-  private replicateAgent(agentId: string, req: ReplicateRequest): { status: number; body: ReplicateResponse | { detail: string } } {
+  private replicateAgent(
+    agentId: string,
+    req: ReplicateRequest,
+  ): { status: number; body: ReplicateResponse | { detail: string } } {
     const parent = this.ensureAgent(agentId);
     if (!parent) return { status: 404, body: { detail: `Agent ${agentId} not found` } };
     if (parent.status === "KILLED") return { status: 409, body: { detail: "Killed parent cannot replicate" } };
@@ -482,7 +499,10 @@ class MockColonyStateImpl implements MockColonyState {
     };
   }
 
-  private toggleHide(agentId: string, req: ToggleBalanceHidingRequest): { status: number; body: ToggleBalanceHidingResponse | { detail: string } } {
+  private toggleHide(
+    agentId: string,
+    req: ToggleBalanceHidingRequest,
+  ): { status: number; body: ToggleBalanceHidingResponse | { detail: string } } {
     const agent = this.ensureAgent(agentId);
     if (!agent) return { status: 404, body: { detail: `Agent ${agentId} not found` } };
     if (agent.status === "KILLED") return { status: 409, body: { detail: "Agent is killed" } };

@@ -13,6 +13,7 @@ Requires OPENAI_API_KEY in env for the agent loop to actually call the LLM.
 Without it, the standalone test still validates worktree creation, file ops,
 and cleanup.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -84,11 +85,20 @@ def test_standalone() -> None:
 
         def executor(aid: str, tool_name: str, args: dict) -> dict:
             if tool_name == "file_read":
-                return worktree_file_read(wt_path, args.get("relative_path", ""), args.get("max_bytes", 32768))
+                return worktree_file_read(
+                    wt_path, args.get("relative_path", ""), args.get("max_bytes", 32768)
+                )
             elif tool_name == "file_write":
-                return worktree_file_write(wt_path, args.get("relative_path", ""), args.get("content", ""), args.get("overwrite", True))
+                return worktree_file_write(
+                    wt_path,
+                    args.get("relative_path", ""),
+                    args.get("content", ""),
+                    args.get("overwrite", True),
+                )
             elif tool_name == "web_search":
-                return local_web_search(args.get("query", ""), [], args.get("max_results", 5))
+                return local_web_search(
+                    args.get("query", ""), [], args.get("max_results", 5)
+                )
             return {"error": f"Unknown tool: {tool_name}", "ok": False}
 
         result = run_agent_loop(
@@ -178,7 +188,11 @@ def test_api() -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test worktree agent execution")
-    parser.add_argument("--api", action="store_true", help="Test against running server instead of standalone")
+    parser.add_argument(
+        "--api",
+        action="store_true",
+        help="Test against running server instead of standalone",
+    )
     args = parser.parse_args()
 
     if args.api:

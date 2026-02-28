@@ -4,6 +4,7 @@ When an agent runs with ``use_worktree=True``, file_read/file_write operate
 on a disposable git worktree instead of the Modal volume or local workspace.
 This gives each execution a full, isolated copy of the repo to modify freely.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ WORKTREE_DIR = ".agent-worktrees"
 # ---------------------------------------------------------------------------
 # Worktree lifecycle
 # ---------------------------------------------------------------------------
+
 
 class WorktreeError(RuntimeError):
     """Raised when worktree operations fail (no git repo, git not installed, etc.)."""
@@ -77,8 +79,11 @@ def create_worktree(execution_id: str, base_ref: str = "HEAD") -> tuple[Path, st
 
     result = subprocess.run(
         [
-            "git", "worktree", "add",
-            "-b", branch_name,
+            "git",
+            "worktree",
+            "add",
+            "-b",
+            branch_name,
             str(worktree_path),
             base_ref,
         ],
@@ -87,9 +92,7 @@ def create_worktree(execution_id: str, base_ref: str = "HEAD") -> tuple[Path, st
         text=True,
     )
     if result.returncode != 0:
-        raise WorktreeError(
-            f"git worktree add failed: {result.stderr.strip()}"
-        )
+        raise WorktreeError(f"git worktree add failed: {result.stderr.strip()}")
 
     logger.info("Created worktree at %s on branch %s", worktree_path, branch_name)
     return worktree_path, branch_name
@@ -113,6 +116,7 @@ def remove_worktree(execution_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Local tool implementations (operate within a worktree)
 # ---------------------------------------------------------------------------
+
 
 def _resolve_worktree_path(worktree_path: Path, relative_path: str) -> Path:
     """Resolve and sandbox a relative path within the worktree."""
@@ -192,6 +196,7 @@ def local_web_search(
 ) -> dict[str, Any]:
     """Run a web search locally via DuckDuckGo — no Modal needed."""
     import httpx
+
     from colony.utils import is_domain_allowed
 
     if not query.strip():
@@ -215,24 +220,27 @@ def local_web_search(
 
     candidates: list[dict[str, str]] = []
     if payload.get("AbstractURL"):
-        candidates.append({
-            "title": payload.get("Heading") or "Result",
-            "url": payload["AbstractURL"],
-            "snippet": payload.get("AbstractText") or "",
-        })
+        candidates.append(
+            {
+                "title": payload.get("Heading") or "Result",
+                "url": payload["AbstractURL"],
+                "snippet": payload.get("AbstractText") or "",
+            }
+        )
 
     for topic in payload.get("RelatedTopics", []):
         if isinstance(topic, dict) and topic.get("FirstURL"):
-            candidates.append({
-                "title": topic.get("Text", "")[:120],
-                "url": topic["FirstURL"],
-                "snippet": topic.get("Text", ""),
-            })
+            candidates.append(
+                {
+                    "title": topic.get("Text", "")[:120],
+                    "url": topic["FirstURL"],
+                    "snippet": topic.get("Text", ""),
+                }
+            )
 
     # Filter by allowed domains
-    filtered = [
-        c for c in candidates
-        if is_domain_allowed(c["url"], allowed_domains)
-    ][:max_results]
+    filtered = [c for c in candidates if is_domain_allowed(c["url"], allowed_domains)][
+        :max_results
+    ]
 
     return {"ok": True, "results": filtered, "total_candidates": len(candidates)}

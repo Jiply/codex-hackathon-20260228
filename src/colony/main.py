@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import random
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,7 @@ import httpx
 import modal
 from fastapi import FastAPI, HTTPException, Query
 
+from colony.agent_loop import run_agent_loop
 from colony.config import (
     API_LABEL,
     APP_NAME,
@@ -25,7 +26,6 @@ from colony.config import (
     UNAUTHORIZED_TOOL_THRESHOLD,
     build_image,
 )
-from colony.agent_loop import run_agent_loop
 from colony.llm import run_agent_task_plan
 from colony.prompts import AGENT_SYSTEM_PROMPT, build_user_prompt
 from colony.schemas import (
@@ -39,7 +39,6 @@ from colony.schemas import (
     ToggleBalanceHidingRequest,
     ToolCallRequest,
 )
-from colony.tool_defs import build_tool_definitions
 from colony.services import (
     _append_event,
     _apply_task_credit,
@@ -57,7 +56,13 @@ from colony.services import (
     _set_balance_hidden,
 )
 from colony.stores import agents_store, events_store, ledger_store
-from colony.utils import is_domain_allowed, resolve_workspace_path, short_hash, utc_now_iso
+from colony.tool_defs import build_tool_definitions
+from colony.utils import (
+    is_domain_allowed,
+    resolve_workspace_path,
+    short_hash,
+    utc_now_iso,
+)
 
 # ---------------------------------------------------------------------------
 # Modal app, volume, image
@@ -1077,8 +1082,10 @@ async def run_agent_loop_endpoint(
     worktree_branch: str | None = None
 
     if req.use_worktree:
-        from colony.worktree import WorktreeError, create_worktree
         import uuid
+
+        from colony.worktree import WorktreeError, create_worktree
+
         wt_id = f"wt_{uuid.uuid4().hex[:10]}"
         try:
             worktree_path, worktree_branch = create_worktree(wt_id)
@@ -1121,7 +1128,9 @@ async def run_agent_loop_endpoint(
                     worktree_path=worktree_path,
                     relative_path=str(args.get("relative_path", "")),
                     max_bytes=min(
-                        int(args.get("max_bytes", agent.tool_profile.max_bytes_per_call)),
+                        int(
+                            args.get("max_bytes", agent.tool_profile.max_bytes_per_call)
+                        ),
                         agent.tool_profile.max_bytes_per_call,
                     ),
                 )
@@ -1278,7 +1287,9 @@ async def simulate_hide_balance(
         raise HTTPException(status_code=409, detail="Agent is killed")
     agent.hide_balance = _set_balance_hidden(agent_id, req.enabled)
     _save_agent(agent)
-    _append_event("BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": agent.hide_balance})
+    _append_event(
+        "BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": agent.hide_balance}
+    )
     return {"agent_id": agent_id, "hide_balance": agent.hide_balance}
 
 
@@ -1329,8 +1340,7 @@ async def colony_logs(
     anchor_ms, offset = _parse_logs_cursor(cursor)
     agent_ids = _sidebar_agent_ids()
     logs = [
-        _generate_sidebar_log(anchor_ms, offset + i, agent_ids)
-        for i in range(limit)
+        _generate_sidebar_log(anchor_ms, offset + i, agent_ids) for i in range(limit)
     ]
     next_cursor = f"{anchor_ms}:{offset + len(logs)}"
     return {

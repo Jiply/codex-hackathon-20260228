@@ -47,10 +47,7 @@ function Sidebar({
 }: React.HTMLAttributes<HTMLElement> & VariantProps<typeof sidebarVariants>): JSX.Element {
   const { collapsed } = useSidebar();
   return (
-    <aside
-      data-state={collapsed ? "collapsed" : "expanded"}
-      className={cn(sidebarVariants({ collapsed }), className)}
-    >
+    <aside data-state={collapsed ? "collapsed" : "expanded"} className={cn(sidebarVariants({ collapsed }), className)}>
       {children}
     </aside>
   );

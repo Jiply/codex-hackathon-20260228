@@ -77,10 +77,7 @@ def run_agent_task_plan(
 ) -> dict[str, Any]:
     client = OpenAI(api_key=api_key) if api_key else OpenAI()
 
-    system_text = (
-        f"{AGENT_SYSTEM_PROMPT}\n\n"
-        f"{_PLAN_JSON_APPENDIX}"
-    )
+    system_text = f"{AGENT_SYSTEM_PROMPT}\n\n{_PLAN_JSON_APPENDIX}"
     user_text = build_user_prompt(
         agent_id=agent_id,
         goal=goal,

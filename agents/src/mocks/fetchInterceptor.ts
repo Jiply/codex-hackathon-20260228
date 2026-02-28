@@ -29,7 +29,10 @@ function shouldHandle(pathname: string): boolean {
   return HANDLED_PATH.some((pattern) => pattern.test(pathname));
 }
 
-async function requestToNormalized(input: RequestInfo | URL, init?: RequestInit): Promise<{ method: string; url: URL; bodyText?: string }> {
+async function requestToNormalized(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<{ method: string; url: URL; bodyText?: string }> {
   if (input instanceof Request) {
     const method = (init?.method ?? input.method ?? "GET").toUpperCase();
     const url = new URL(input.url, window.location.origin);
@@ -112,5 +115,9 @@ export function isMockFetchInstalled(): boolean {
 }
 
 export function shouldEnableMocksFromEnv(): boolean {
-  return String(import.meta.env.VITE_USE_MOCKS ?? "").trim().toLowerCase() === "true";
+  return (
+    String(import.meta.env.VITE_USE_MOCKS ?? "")
+      .trim()
+      .toLowerCase() === "true"
+  );
 }

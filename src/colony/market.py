@@ -244,7 +244,11 @@ class TaskMarket:
         listing = dict(raw)
         if require_open and listing.get("status") != "OPEN":
             return None
-        return self._hidden_listing(listing) if include_hidden else self._public_listing(listing)
+        return (
+            self._hidden_listing(listing)
+            if include_hidden
+            else self._public_listing(listing)
+        )
 
     def market_tick(
         self,
@@ -318,7 +322,9 @@ class TaskMarket:
         tools = {tool.strip() for tool in agent_tools if str(tool).strip()}
         estimation_skill = normalized_knowledge.get("estimation", 0.5)
         noise_base = float(
-            self._config.observation_noise if observation_noise is None else observation_noise
+            self._config.observation_noise
+            if observation_noise is None
+            else observation_noise
         )
         noise_base = max(0.0, noise_base)
 
@@ -326,7 +332,13 @@ class TaskMarket:
         for listing in listings:
             listing_id = str(listing.get("listing_id", ""))
             rng = random.Random(
-                _stable_seed(self._config.seed, "observe", self.current_tick(), agent_id, listing_id)
+                _stable_seed(
+                    self._config.seed,
+                    "observe",
+                    self.current_tick(),
+                    agent_id,
+                    listing_id,
+                )
             )
             true_cost = float(listing.get("true_cost", 0.0))
             ambiguity = float(listing.get("ambiguity", 0.5))
@@ -336,7 +348,9 @@ class TaskMarket:
             estimated_cost = max(0.01, true_cost * (1.0 + cost_noise))
 
             req_tools = set(listing.get("required_tools", []))
-            tool_fit_guess = 1.0 if not req_tools else len(req_tools & tools) / len(req_tools)
+            tool_fit_guess = (
+                1.0 if not req_tools else len(req_tools & tools) / len(req_tools)
+            )
 
             req_knowledge = dict(listing.get("required_knowledge", {}))
             if req_knowledge:
@@ -493,7 +507,9 @@ class TaskMarket:
         advertised_payout = float(listing.get("advertised_payout", 0.0))
         actual_payout = max(0.0, advertised_payout * payout_multiplier)
 
-        cost_multiplier = 1.0 + (1.0 - tool_fit) * miss_tool + (1.0 - skill_fit) * miss_skill
+        cost_multiplier = (
+            1.0 + (1.0 - tool_fit) * miss_tool + (1.0 - skill_fit) * miss_skill
+        )
         if not success:
             cost_multiplier *= 1.1
         true_cost = float(listing.get("true_cost", 0.0))

@@ -1,5 +1,7 @@
 # codex-hackathon-20260228
 
+![Project cover](cover.png)
+
 This entire project is directed, built, and evaluated by Codex.
 
 ## Instructions to Codex

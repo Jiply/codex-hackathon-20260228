@@ -27,8 +27,10 @@ function cloneEvents(events: ColonyEvent[]): ColonyEvent[] {
 
 function makeHighRisk(): { agents: AgentRecord[]; ledger: LedgerRecord[]; events: ColonyEvent[] } {
   const agents: AgentRecord[] = cloneAgents(SNAPSHOT_AGENTS).map((agent, index): AgentRecord => {
-    if (index % 5 === 0) return { ...agent, status: "FLAGGED", healthy: false, quality_rolling: Math.max(0.2, agent.quality_rolling - 0.35) };
-    if (index % 7 === 0) return { ...agent, status: "KILLED", healthy: false, quality_rolling: Math.max(0.1, agent.quality_rolling - 0.45) };
+    if (index % 5 === 0)
+      return { ...agent, status: "FLAGGED", healthy: false, quality_rolling: Math.max(0.2, agent.quality_rolling - 0.35) };
+    if (index % 7 === 0)
+      return { ...agent, status: "KILLED", healthy: false, quality_rolling: Math.max(0.1, agent.quality_rolling - 0.45) };
     return agent;
   });
 

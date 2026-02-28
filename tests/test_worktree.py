@@ -1,4 +1,5 @@
 """Tests for colony.worktree — local file operations and worktree lifecycle."""
+
 from __future__ import annotations
 
 import subprocess
@@ -18,10 +19,10 @@ from colony.worktree import (
     worktree_file_write,
 )
 
-
 # ---------------------------------------------------------------------------
 # _resolve_worktree_path
 # ---------------------------------------------------------------------------
+
 
 class TestResolveWorktreePath:
     def test_normal_path(self, tmp_path: Path) -> None:
@@ -48,6 +49,7 @@ class TestResolveWorktreePath:
 # ---------------------------------------------------------------------------
 # worktree_file_write
 # ---------------------------------------------------------------------------
+
 
 class TestWorktreeFileWrite:
     def test_writes_new_file(self, tmp_path: Path) -> None:
@@ -94,6 +96,7 @@ class TestWorktreeFileWrite:
 # worktree_file_read
 # ---------------------------------------------------------------------------
 
+
 class TestWorktreeFileRead:
     def test_reads_existing_file(self, tmp_path: Path) -> None:
         (tmp_path / "data.txt").write_text("contents here")
@@ -135,6 +138,7 @@ class TestWorktreeFileRead:
 # create_worktree / remove_worktree (integration — requires a real git repo)
 # ---------------------------------------------------------------------------
 
+
 class TestWorktreeLifecycle:
     @pytest.fixture()
     def git_repo(self, tmp_path: Path) -> Path:
@@ -144,21 +148,31 @@ class TestWorktreeLifecycle:
         subprocess.run(["git", "init"], cwd=str(repo), capture_output=True, check=True)
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
-            cwd=str(repo), capture_output=True, check=True,
+            cwd=str(repo),
+            capture_output=True,
+            check=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test"],
-            cwd=str(repo), capture_output=True, check=True,
+            cwd=str(repo),
+            capture_output=True,
+            check=True,
         )
         (repo / "README.md").write_text("# Test")
-        subprocess.run(["git", "add", "."], cwd=str(repo), capture_output=True, check=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=str(repo), capture_output=True, check=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "init"],
-            cwd=str(repo), capture_output=True, check=True,
+            cwd=str(repo),
+            capture_output=True,
+            check=True,
         )
         return repo
 
-    def test_create_and_remove_worktree(self, git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_create_and_remove_worktree(
+        self, git_repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Worktree can be created and removed."""
         monkeypatch.chdir(git_repo)
 
