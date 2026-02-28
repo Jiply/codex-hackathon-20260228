@@ -144,6 +144,24 @@ def ensure_workspace(agent_id: str) -> None:
     data_volume.commit()
 
 
+def _ensure_workspace_best_effort(agent_id: str) -> None:
+    """Create agent workspace in Modal when available, otherwise local fallback."""
+    try:
+        ensure_workspace.spawn(agent_id)
+        return
+    except Exception:
+        pass
+
+    workspace = Path(DATA_ROOT) / agent_id / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    seed_path = workspace / "README.txt"
+    if not seed_path.exists():
+        seed_path.write_text(
+            "Agent workspace initialized. Use file_read/file_write via tool dispatcher.\n",
+            encoding="utf-8",
+        )
+
+
 @app.function(image=image, timeout=30)
 def web_search_tool(
     query: str,
@@ -276,7 +294,7 @@ async def service_version() -> dict[str, str]:
 @web_app.post("/agents/spawn")
 async def spawn_agent(req: SpawnRequest) -> dict[str, Any]:
     agent, ledger = _create_agent(req)
-    ensure_workspace.spawn(agent.agent_id)
+    _ensure_workspace_best_effort(agent.agent_id)
     return {"agent": agent.model_dump(), "ledger": ledger.model_dump()}
 
 
@@ -528,6 +546,12 @@ async def run_agent_loop_endpoint(
     recent_events = _safe_recent_events(agent_id, limit=12)
     capabilities = agent.tool_profile.model_dump()
     tool_definitions = build_tool_definitions(capabilities)
+    user_prompt = build_user_prompt(
+        agent_id=agent_id,
+        goal=req.goal,
+        capabilities=capabilities,
+        recent_events=recent_events,
+    )
 
     # -- Set up worktree if requested ------------------------------------------
     worktree_path: Path | None = None
@@ -636,6 +660,7 @@ async def run_agent_loop_endpoint(
         agent_id=agent_id,
         goal=req.goal,
         system_prompt=AGENT_SYSTEM_PROMPT,
+        user_prompt=user_prompt,
         tool_definitions=tool_definitions,
         tool_executor=_tool_executor,
         context=context,
@@ -706,7 +731,7 @@ async def replicate_agent(agent_id: str, req: ReplicateRequest) -> dict[str, Any
         parent_id=agent_id,
     )
     child_agent, child_ledger = _create_agent(child_req)
-    ensure_workspace.spawn(child_agent.agent_id)
+    _ensure_workspace_best_effort(child_agent.agent_id)
     _append_event(
         "AGENT_REPLICATED",
         child_agent.agent_id,

@@ -205,6 +205,7 @@ def run_agent_loop(
     agent_id: str,
     goal: str,
     system_prompt: str,
+    user_prompt: str | None = None,
     tool_definitions: list[dict],
     tool_executor: Callable[[str, str, dict], dict],
     context: dict[str, Any],
@@ -226,6 +227,9 @@ def run_agent_loop(
         The objective/task for this execution.
     system_prompt:
         Instructions for the model (passed as ``instructions``).
+    user_prompt:
+        Optional prebuilt user message. When omitted, one is synthesized from
+        ``goal`` and ``context``.
     tool_definitions:
         Tool definitions in Responses API format.
     tool_executor:
@@ -249,11 +253,14 @@ def run_agent_loop(
     client = OpenAI(api_key=api_key)
 
     # -- Build initial input ---------------------------------------------------
-    user_content = (
-        f"## Goal\n{goal}\n\n"
-        f"## Context\n```json\n{json.dumps(context, default=str, indent=2)}\n```"
-        f"{_SELF_ASSESSMENT_INSTRUCTION}"
-    )
+    if user_prompt and user_prompt.strip():
+        user_content = user_prompt
+    else:
+        user_content = (
+            f"## Goal\n{goal}\n\n"
+            f"## Context\n```json\n{json.dumps(context, default=str, indent=2)}\n```"
+            f"{_SELF_ASSESSMENT_INSTRUCTION}"
+        )
 
     # Responses API uses a flat list of input items
     input_items: list[dict[str, Any]] = [

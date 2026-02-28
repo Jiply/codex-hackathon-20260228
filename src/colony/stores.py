@@ -6,6 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from colony.config import STORE_DIR
+except ModuleNotFoundError:
+    from config import STORE_DIR
+
 
 class JsonlStore:
     """Dict-like store backed by a JSONL file.
@@ -111,3 +116,11 @@ class EventLog:
 
     def items(self):
         return self._data.items()
+
+
+_store_root = Path(STORE_DIR)
+agents_store = JsonlStore(_store_root / "agents.jsonl")
+ledger_store = JsonlStore(_store_root / "ledger.jsonl")
+events_store = EventLog(_store_root / "events.jsonl")
+meta_store = JsonlStore(_store_root / "meta.jsonl")
+balance_visibility_store = JsonlStore(_store_root / "balance_visibility.jsonl")

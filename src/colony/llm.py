@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from openai import OpenAI
+
+from colony.prompts import AGENT_SYSTEM_PROMPT, build_user_prompt
+
+_PLAN_JSON_APPENDIX = (
+    "For this endpoint, return strict JSON only with keys: "
+    "summary, quality_score, revenue_credit, tool_calls. "
+    "quality_score must be 0..1, revenue_credit must be >=0, "
+    "tool_calls is an array of objects with {tool, args} using only "
+    "web_search, file_read, file_write."
+)
 
 
 def _extract_response_text(response: Any) -> str:
@@ -35,6 +46,14 @@ def _parse_jsonish(text: str) -> dict[str, Any]:
     except Exception:
         pass
 
+    fenced_match = re.search(r"```json\s*(\{.*?\})\s*```", stripped, re.DOTALL)
+    if fenced_match:
+        try:
+            parsed = json.loads(fenced_match.group(1))
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            pass
+
     start = stripped.find("{")
     end = stripped.rfind("}")
     if start == -1 or end == -1 or end <= start:
@@ -59,30 +78,24 @@ def run_agent_task_plan(
     client = OpenAI(api_key=api_key) if api_key else OpenAI()
 
     system_text = (
-        "You are an autonomous coding/workflow agent in an economic survival colony. "
-        "Return strict JSON only with keys: summary, quality_score, revenue_credit, tool_calls. "
-        "quality_score must be 0..1, revenue_credit must be >=0, "
-        "tool_calls is an array of objects with {tool, args} using only web_search, file_read, file_write."
+        f"{AGENT_SYSTEM_PROMPT}\n\n"
+        f"{_PLAN_JSON_APPENDIX}"
     )
-
-    payload = {
-        "agent_id": agent_id,
-        "goal": goal,
-        "capabilities": capabilities,
-        "recent_events": recent_events,
-    }
+    user_text = build_user_prompt(
+        agent_id=agent_id,
+        goal=goal,
+        capabilities=capabilities,
+        recent_events=recent_events,
+    )
 
     response = client.responses.create(
         model=model,
         max_output_tokens=max_output_tokens,
+        instructions=system_text,
         input=[
             {
-                "role": "system",
-                "content": [{"type": "input_text", "text": system_text}],
-            },
-            {
                 "role": "user",
-                "content": [{"type": "input_text", "text": json.dumps(payload)}],
+                "content": [{"type": "input_text", "text": user_text}],
             },
         ],
     )
