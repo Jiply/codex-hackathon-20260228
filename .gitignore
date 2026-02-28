@@ -1,8 +1,12 @@
+.env
 .env.*
 .venv/
+__pycache__/
+*.pyc
 .DS_Store
 node_modules/
+dashboard-ui/.env.local
 dashboard-ui/dist
 dashboard-ui/.vite
-dashboard-ui/node_modules
+dashboard-ui/node_modules/
 dashboard-ui/*.tsbuildinfo
