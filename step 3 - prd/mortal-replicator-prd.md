@@ -176,6 +176,7 @@ Most agent demos show capability but not economic accountability. This product d
 - Simulation engine: lease ticker + rule evaluator + mutation logic.
 - In-memory ledger store: agent/event state.
 - Dashboard client: polls or subscribes for live state.
+- Idea generation bank: Idea Collision Guardrail (Dead-Idea Vector Memory + RAG Top-K Gate)
 
 ### Key API endpoints (suggested)
 
