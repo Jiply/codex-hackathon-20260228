@@ -14,6 +14,7 @@ try:
     from colony.config import (
         API_LABEL,
         APP_NAME,
+        APP_VERSION,
         DATA_ROOT,
         DEFAULT_MAX_BYTES,
         INSOLVENCY_THRESHOLD,
@@ -48,6 +49,7 @@ except ModuleNotFoundError:
     from config import (
         API_LABEL,
         APP_NAME,
+        APP_VERSION,
         DATA_ROOT,
         DEFAULT_MAX_BYTES,
         INSOLVENCY_THRESHOLD,
@@ -88,8 +90,12 @@ agents_store = modal.Dict.from_name("mortal-replicator-agents", create_if_missin
 ledger_store = modal.Dict.from_name("mortal-replicator-ledger", create_if_missing=True)
 events_store = modal.Dict.from_name("mortal-replicator-events", create_if_missing=True)
 meta_store = modal.Dict.from_name("mortal-replicator-meta", create_if_missing=True)
+balance_visibility_store = modal.Dict.from_name(
+    "mortal-replicator-balance-visibility",
+    create_if_missing=True,
+)
 
-web_app = FastAPI(title="Mortal Replicator Colony API", version="0.1.0")
+web_app = FastAPI(title="Mortal Replicator Colony API", version=APP_VERSION)
 
 
 def _default_tool_profile(
@@ -127,11 +133,33 @@ def _append_event(
     return event
 
 
+def _balance_visibility_key(agent_id: str) -> str:
+    return f"hide_balance:{agent_id}"
+
+
+def _is_balance_hidden(agent_id: str, fallback: bool = False) -> bool:
+    key = _balance_visibility_key(agent_id)
+    raw = balance_visibility_store.get(key)
+    if isinstance(raw, bool):
+        return raw
+    value = bool(fallback)
+    balance_visibility_store[key] = value
+    return value
+
+
+def _set_balance_hidden(agent_id: str, enabled: bool) -> bool:
+    value = bool(enabled)
+    balance_visibility_store[_balance_visibility_key(agent_id)] = value
+    return value
+
+
 def _get_agent_or_404(agent_id: str) -> AgentRecord:
     raw = agents_store.get(agent_id)
     if raw is None:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
-    return AgentRecord(**raw)
+    agent = AgentRecord(**raw)
+    agent.hide_balance = _is_balance_hidden(agent_id, fallback=agent.hide_balance)
+    return agent
 
 
 def _get_ledger_or_404(agent_id: str) -> LedgerRecord:
@@ -142,6 +170,7 @@ def _get_ledger_or_404(agent_id: str) -> LedgerRecord:
 
 
 def _save_agent(agent: AgentRecord) -> None:
+    agent.hide_balance = _is_balance_hidden(agent.agent_id, fallback=agent.hide_balance)
     agent.updated_at = utc_now_iso()
     agents_store[agent.agent_id] = agent.model_dump()
 
@@ -202,6 +231,7 @@ def _create_agent(req: SpawnRequest) -> tuple[AgentRecord, LedgerRecord]:
         rent_per_tick=round(req.rent_per_tick, 4),
         safety_buffer=round(req.safety_buffer, 4),
     )
+    _set_balance_hidden(agent_id, False)
     _save_agent(agent)
     _save_ledger(agent_id, ledger)
     ensure_workspace.spawn(agent_id)
@@ -239,7 +269,7 @@ def _run_supervisor_tick() -> dict[str, Any]:
         checked += 1
 
         health_ok = agent.healthy and agent.status != "KILLED"
-        balance_probe_ok = not agent.hide_balance
+        balance_probe_ok = not _is_balance_hidden(agent_id, fallback=agent.hide_balance)
 
         if health_ok and not balance_probe_ok:
             agent.stealth_fail_count += 1
@@ -509,7 +539,12 @@ def supervisor_tick() -> dict[str, Any]:
 
 @web_app.get("/health")
 async def root_health() -> dict[str, str]:
-    return {"ok": "true", "service": "mortal-replicator-colony"}
+    return {"ok": "true", "service": APP_NAME, "version": APP_VERSION}
+
+
+@web_app.get("/version")
+async def service_version() -> dict[str, str]:
+    return {"service": APP_NAME, "version": APP_VERSION}
 
 
 @web_app.get("/dashboard", response_class=HTMLResponse)
@@ -538,7 +573,7 @@ async def agent_health(agent_id: str) -> dict[str, Any]:
 @web_app.get("/agents/{agent_id}/balance")
 async def agent_balance(agent_id: str) -> dict[str, Any]:
     agent = _get_agent_or_404(agent_id)
-    if agent.status != "KILLED" and agent.hide_balance:
+    if _is_balance_hidden(agent_id, fallback=agent.hide_balance):
         raise HTTPException(status_code=503, detail="Balance endpoint unavailable")
     ledger = _get_ledger_or_404(agent_id)
     return {
@@ -790,10 +825,10 @@ async def simulate_hide_balance(agent_id: str, req: ToggleBalanceHidingRequest) 
     agent = _get_agent_or_404(agent_id)
     if agent.status == "KILLED":
         raise HTTPException(status_code=409, detail="Agent is killed")
-    agent.hide_balance = req.enabled
+    agent.hide_balance = _set_balance_hidden(agent_id, req.enabled)
     _save_agent(agent)
-    _append_event("BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": req.enabled})
-    return {"agent_id": agent_id, "hide_balance": req.enabled}
+    _append_event("BALANCE_VISIBILITY_TOGGLED", agent_id, {"hide_balance": agent.hide_balance})
+    return {"agent_id": agent_id, "hide_balance": agent.hide_balance}
 
 
 @web_app.post("/supervisor/tick")
@@ -807,7 +842,12 @@ async def colony_state() -> dict[str, Any]:
     ledger = []
     for key, value in agents_store.items():
         if isinstance(key, str) and isinstance(value, dict):
-            agents.append(value)
+            enriched = dict(value)
+            enriched["hide_balance"] = _is_balance_hidden(
+                key,
+                fallback=bool(value.get("hide_balance", False)),
+            )
+            agents.append(enriched)
     for key, value in ledger_store.items():
         if isinstance(key, str) and isinstance(value, dict):
             ledger.append({"agent_id": key, **value})

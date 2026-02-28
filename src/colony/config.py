@@ -7,6 +7,7 @@ import modal
 
 APP_NAME = os.getenv("MODAL_APP_NAME", "mortal-replicator-colony")
 API_LABEL = os.getenv("MODAL_API_LABEL", "mortal-replicator-api")
+APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 
 DATA_ROOT = "/agent-data"
 

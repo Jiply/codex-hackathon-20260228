@@ -96,6 +96,7 @@ def render_dashboard_html() -> str:
         <label class="muted">Auto refresh <input type="checkbox" id="autoRefresh" checked /></label>
       </div>
       <div id="status" class="muted" style="margin-top:8px;"></div>
+      <div id="versionText" class="muted" style="margin-top:4px;">API version: ...</div>
     </div>
 
     <div class="grid">
@@ -137,6 +138,16 @@ def render_dashboard_html() -> str:
       const el = document.getElementById("status");
       el.textContent = text;
       el.style.color = ok ? "var(--ok)" : "var(--bad)";
+    }
+
+    async function refreshVersion() {
+      try {
+        const info = await api("/version");
+        const version = info.version || "unknown";
+        document.getElementById("versionText").textContent = `API version: ${version}`;
+      } catch (e) {
+        document.getElementById("versionText").textContent = "API version: unavailable";
+      }
     }
 
     async function spawnAgent() {
@@ -242,6 +253,7 @@ def render_dashboard_html() -> str:
       } catch (e) { setStatus(e.message, false); }
     }
 
+    refreshVersion();
     refreshAll();
     setInterval(() => {
       if (document.getElementById("autoRefresh").checked) refreshAll();
@@ -250,4 +262,3 @@ def render_dashboard_html() -> str:
 </body>
 </html>
 """
-
