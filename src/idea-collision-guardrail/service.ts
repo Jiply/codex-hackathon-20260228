@@ -285,3 +285,5 @@ export class IdeaCollisionGuardrail {
     }
   }
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/service.ts");

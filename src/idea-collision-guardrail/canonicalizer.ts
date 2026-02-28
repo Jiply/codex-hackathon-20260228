@@ -18,3 +18,5 @@ export function canonicalizeIdeaText(input: { title?: string; body?: string; tag
     .replace(WHITESPACE_RE, " ")
     .trim();
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/canonicalizer.ts");

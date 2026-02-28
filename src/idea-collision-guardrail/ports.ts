@@ -29,3 +29,5 @@ export interface CollisionPolicy {
 }
 
 export const PORT_MARKER = "idea-collision-guardrail-ports";
+
+console.log("[codex] loaded: src/idea-collision-guardrail/ports.ts");

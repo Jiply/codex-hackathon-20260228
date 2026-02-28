@@ -6,7 +6,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   <div
     ref={ref}
     className={cn(
-      "rounded-3xl border border-border/70 bg-card/90 text-card-foreground shadow-[0_12px_35px_rgba(20,21,25,0.08)] backdrop-blur",
+      "rounded-[1.5rem] border border-border/70 bg-card/90 text-card-foreground shadow-[0_10px_24px_rgba(37,40,45,0.05)] backdrop-blur-[2px]",
       className,
     )}
     {...props}
@@ -21,20 +21,24 @@ CardHeader.displayName = "CardHeader";
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("font-serif text-2xl font-medium tracking-tight", className)} {...props} />
+    <h3 ref={ref} className={cn("font-display text-[2rem] font-medium leading-none text-foreground", className)} {...props} />
   ),
 );
 CardTitle.displayName = "CardTitle";
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("text-xs uppercase tracking-[0.16em] text-muted-foreground", className)} {...props} />
+    <p
+      ref={ref}
+      className={cn("font-ui text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground", className)}
+      {...props}
+    />
   ),
 );
 CardDescription.displayName = "CardDescription";
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  <div ref={ref} className={cn("font-ui p-6 pt-0", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
@@ -44,3 +48,5 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 CardFooter.displayName = "CardFooter";
 
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };
+
+console.log('[codex] loaded: dashboard-ui/src/components/ui/card.tsx');

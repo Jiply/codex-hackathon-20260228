@@ -22,3 +22,5 @@ export function lexicalOverlapScore(queryText: string, documentText: string): nu
 
   return (2 * intersection) / (queryTokens.size + docTokens.size);
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/adapters/lexical.ts");

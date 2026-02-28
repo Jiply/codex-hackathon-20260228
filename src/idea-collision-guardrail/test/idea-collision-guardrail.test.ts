@@ -260,3 +260,5 @@ test("lexical hard reject triggers when semantic thresholds are intentionally di
   assert.equal(decision.accepted, false);
   assert.equal(decision.reason_code, CollisionReasonCode.IDEA_COLLISION_LEXICAL_HIGH_OVERLAP);
 });
+
+console.log("[codex] loaded: src/idea-collision-guardrail/test/idea-collision-guardrail.test.ts");

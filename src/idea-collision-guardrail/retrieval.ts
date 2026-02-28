@@ -108,3 +108,5 @@ export function fuseMatchesWithRrf(input: {
 
   return fused.slice(0, input.topK);
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/retrieval.ts");

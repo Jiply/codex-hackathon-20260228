@@ -9,3 +9,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>,
 );
+
+console.log('[codex] loaded: dashboard-ui/src/main.tsx');

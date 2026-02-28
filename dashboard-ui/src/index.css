@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Manrope:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@300;400;500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,26 +6,26 @@
 
 @layer base {
     :root {
-        --background: 42 22% 95%;
-        --foreground: 218 20% 18%;
-        --card: 44 29% 98%;
-        --card-foreground: 218 20% 20%;
-        --popover: 44 29% 98%;
-        --popover-foreground: 218 20% 20%;
-        --primary: 203 43% 34%;
-        --primary-foreground: 40 30% 97%;
-        --secondary: 45 32% 90%;
-        --secondary-foreground: 216 20% 22%;
-        --muted: 42 24% 91%;
-        --muted-foreground: 215 12% 45%;
-        --accent: 166 33% 88%;
-        --accent-foreground: 160 40% 24%;
-        --destructive: 2 68% 57%;
-        --destructive-foreground: 0 0% 99%;
-        --border: 36 20% 84%;
-        --input: 36 20% 84%;
-        --ring: 204 37% 42%;
-        --radius: 1rem;
+        --background: 38 24% 96%;
+        --foreground: 220 15% 22%;
+        --card: 36 30% 97%;
+        --card-foreground: 220 15% 22%;
+        --popover: 36 30% 97%;
+        --popover-foreground: 220 15% 22%;
+        --primary: 154 15% 40%;
+        --primary-foreground: 38 24% 97%;
+        --secondary: 34 22% 92%;
+        --secondary-foreground: 220 11% 29%;
+        --muted: 34 20% 91%;
+        --muted-foreground: 218 10% 47%;
+        --accent: 150 22% 90%;
+        --accent-foreground: 155 21% 30%;
+        --destructive: 353 46% 68%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 35 18% 86%;
+        --input: 35 18% 86%;
+        --ring: 154 17% 43%;
+        --radius: 1.15rem;
     }
 
     * {
@@ -35,18 +35,28 @@
     body {
         @apply text-foreground antialiased;
         min-height: 100vh;
-        font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+        font-family: "IBM Plex Sans Condensed", "Avenir Next Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+        letter-spacing: 0.01em;
         background-color: hsl(var(--background));
         background-image:
-            radial-gradient(circle at 15% 10%, rgba(171, 191, 179, 0.22), transparent 35%),
-            radial-gradient(circle at 85% 0%, rgba(201, 180, 156, 0.24), transparent 28%),
-            linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(248, 244, 237, 0.9));
+            radial-gradient(circle at 12% 10%, rgba(177, 191, 180, 0.14), transparent 34%),
+            radial-gradient(circle at 86% 0%, rgba(206, 190, 175, 0.18), transparent 30%),
+            linear-gradient(168deg, rgba(255, 255, 255, 0.86), rgba(248, 245, 240, 0.92));
     }
 }
 
 @layer utilities {
+    .font-ui {
+        font-family: "IBM Plex Sans Condensed", "Avenir Next Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+    }
+
     .font-display {
-        font-family: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+        font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", serif;
+        letter-spacing: -0.01em;
+    }
+
+    .font-code {
+        font-family: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
     }
 
     .noise-panel {
@@ -59,8 +69,8 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background-image: radial-gradient(rgba(36, 42, 53, 0.06) 0.5px, transparent 0.5px);
+        background-image: radial-gradient(rgba(56, 62, 69, 0.08) 0.45px, transparent 0.45px);
         background-size: 3px 3px;
-        opacity: 0.18;
+        opacity: 0.09;
     }
 }

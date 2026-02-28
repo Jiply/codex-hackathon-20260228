@@ -14,6 +14,11 @@ STORE_DIR = os.getenv("STORE_DIR", "data")
 DEFAULT_RENT_PER_TICK = float(os.getenv("DEFAULT_RENT_PER_TICK", "0.5"))
 DEFAULT_SAFETY_BUFFER = float(os.getenv("DEFAULT_SAFETY_BUFFER", "0.3"))
 DEFAULT_MAX_BYTES = int(os.getenv("DEFAULT_MAX_BYTES", "32768"))
+_cors_origins_raw = os.getenv(
+    "CORS_ALLOW_ORIGINS",
+    "http://localhost:5174,http://127.0.0.1:5174",
+)
+CORS_ALLOW_ORIGINS = [origin.strip() for origin in _cors_origins_raw.split(",") if origin.strip()]
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-5.3-codex")
 LLM_MAX_OUTPUT_TOKENS = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "700"))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

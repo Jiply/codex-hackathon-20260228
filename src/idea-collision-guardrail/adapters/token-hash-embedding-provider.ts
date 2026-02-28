@@ -34,3 +34,5 @@ function stableHash(token: string, mod: number): number {
 
   return hash % mod;
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/adapters/token-hash-embedding-provider.ts");

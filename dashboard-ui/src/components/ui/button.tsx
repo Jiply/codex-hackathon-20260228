@@ -5,21 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-full text-xs font-semibold tracking-[0.1em] uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+  "font-ui inline-flex items-center justify-center whitespace-nowrap rounded-full border text-[10px] font-medium uppercase tracking-[0.18em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:opacity-95",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90",
-        outline: "border border-border/70 bg-background/70 text-foreground hover:bg-accent hover:text-accent-foreground",
-        ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        default: "border-primary/40 bg-primary/15 text-foreground hover:bg-primary/24",
+        secondary: "border-secondary/80 bg-secondary/85 text-secondary-foreground hover:bg-secondary",
+        outline: "border-border/80 bg-background/70 text-foreground hover:border-accent-foreground/25 hover:bg-accent/40",
+        ghost: "border-transparent text-foreground/80 hover:border-border/80 hover:bg-accent/35",
+        destructive: "border-rose-200 bg-rose-100/90 text-rose-700 hover:bg-rose-200/80",
       },
       size: {
-        default: "h-10 px-5 py-2",
-        sm: "h-9 px-4",
-        lg: "h-11 px-6",
-        icon: "h-10 w-10",
+        default: "h-9 px-4 py-1.5",
+        sm: "h-8 px-3.5",
+        lg: "h-10 px-5",
+        icon: "h-9 w-9",
       },
     },
     defaultVariants: {
@@ -42,3 +42,5 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export { Button, buttonVariants };
+
+console.log('[codex] loaded: dashboard-ui/src/components/ui/button.tsx');

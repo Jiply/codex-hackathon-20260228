@@ -11,3 +11,5 @@ export class MemoryEventPublisher implements EventPublisher {
     this.events.push({ eventType, payload });
   }
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/testing/memory-event-publisher.ts");

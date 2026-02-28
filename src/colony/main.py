@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import modal
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 try:
@@ -15,6 +16,7 @@ try:
         API_LABEL,
         APP_NAME,
         APP_VERSION,
+        CORS_ALLOW_ORIGINS,
         DATA_ROOT,
         DEFAULT_MAX_BYTES,
         INSOLVENCY_THRESHOLD,
@@ -57,6 +59,7 @@ except ModuleNotFoundError:
         API_LABEL,
         APP_NAME,
         APP_VERSION,
+        CORS_ALLOW_ORIGINS,
         DATA_ROOT,
         DEFAULT_MAX_BYTES,
         INSOLVENCY_THRESHOLD,
@@ -103,6 +106,13 @@ meta_store = JsonlStore(_store_root / "meta.jsonl")
 balance_visibility_store = JsonlStore(_store_root / "balance_visibility.jsonl")
 
 web_app = FastAPI(title="Mortal Replicator Colony API", version=APP_VERSION)
+web_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _default_tool_profile(

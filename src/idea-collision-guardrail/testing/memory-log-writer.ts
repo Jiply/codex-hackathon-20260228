@@ -21,3 +21,5 @@ export class MemoryLogWriter implements HumanLogWriter {
     this.agentLogs.get(agentId)!.push(entry);
   }
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/testing/memory-log-writer.ts");

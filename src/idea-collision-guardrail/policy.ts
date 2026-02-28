@@ -68,3 +68,5 @@ export class DefaultCollisionPolicy implements CollisionPolicy {
     };
   }
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/policy.ts");

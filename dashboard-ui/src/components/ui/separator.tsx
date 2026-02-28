@@ -18,3 +18,5 @@ const Separator = React.forwardRef<
 Separator.displayName = SeparatorPrimitive.Root.displayName;
 
 export { Separator };
+
+console.log('[codex] loaded: dashboard-ui/src/components/ui/separator.tsx');

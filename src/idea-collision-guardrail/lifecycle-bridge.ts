@@ -51,3 +51,5 @@ export class GuardrailLifecycleBridge {
     });
   }
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/lifecycle-bridge.ts");

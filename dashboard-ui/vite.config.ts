@@ -14,3 +14,5 @@ export default defineConfig({
     host: true,
   },
 });
+
+console.log('[codex] loaded: dashboard-ui/vite.config.ts');

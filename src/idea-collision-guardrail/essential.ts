@@ -9,3 +9,5 @@ export { CollisionEventType, CollisionReasonCode } from "./contracts.ts";
 export { InMemoryVectorStore } from "./adapters/in-memory-vector-store.ts";
 export { TokenHashEmbeddingProvider } from "./adapters/token-hash-embedding-provider.ts";
 export { lexicalOverlapScore } from "./adapters/lexical.ts";
+
+console.log("[codex] loaded: src/idea-collision-guardrail/essential.ts");

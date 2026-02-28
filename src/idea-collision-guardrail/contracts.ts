@@ -63,3 +63,5 @@ export const CollisionReasonCode = Object.freeze({
 });
 
 export type CollisionReasonCodeValue = (typeof CollisionReasonCode)[keyof typeof CollisionReasonCode];
+
+console.log("[codex] loaded: src/idea-collision-guardrail/contracts.ts");

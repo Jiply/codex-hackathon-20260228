@@ -22,3 +22,5 @@ export function asGuardrailError(error: unknown, code: string, message: string, 
     cause: error,
   });
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/errors.ts");

@@ -92,3 +92,5 @@ function passesFilter(idea: ArchivedIdea, filters: JsonMap): boolean {
 
   return true;
 }
+
+console.log("[codex] loaded: src/idea-collision-guardrail/adapters/in-memory-vector-store.ts");

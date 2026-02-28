@@ -58,3 +58,5 @@ const config: Config = {
 };
 
 export default config;
+
+console.log('[codex] loaded: dashboard-ui/tailwind.config.ts');

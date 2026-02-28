@@ -4,17 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors",
+  "font-ui inline-flex items-center rounded-full border px-2.5 py-[3px] text-[9px] font-medium uppercase tracking-[0.2em] transition-colors",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary/20 text-primary",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-red-100 text-red-700",
-        outline: "border-border text-foreground",
-        success: "border-emerald-200 bg-emerald-100 text-emerald-700",
-        warning: "border-amber-200 bg-amber-100 text-amber-700",
-        info: "border-cyan-200 bg-cyan-100 text-cyan-700",
+        default: "border-primary/35 bg-primary/15 text-primary",
+        secondary: "border-secondary/70 bg-secondary/70 text-secondary-foreground",
+        destructive: "border-rose-200 bg-rose-100/85 text-rose-700",
+        outline: "border-border/90 bg-background/55 text-foreground/85",
+        success: "border-emerald-200/85 bg-emerald-50 text-emerald-700",
+        warning: "border-amber-200/85 bg-amber-50 text-amber-700",
+        info: "border-sky-200/85 bg-sky-50 text-sky-700",
       },
     },
     defaultVariants: {
@@ -30,3 +30,5 @@ function Badge({ className, variant, ...props }: BadgeProps): JSX.Element {
 }
 
 export { Badge, badgeVariants };
+
+console.log('[codex] loaded: dashboard-ui/src/components/ui/badge.tsx');

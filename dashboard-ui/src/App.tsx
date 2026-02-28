@@ -51,7 +51,9 @@ interface VersionResponse {
 
 type StatusTone = "neutral" | "ok" | "error";
 
-const API_BASE = (import.meta.env.VITE_COLONY_API_BASE as string | undefined) ?? "";
+const API_BASE =
+  (import.meta.env.VITE_COLONY_API_BASE as string | undefined)?.trim() ||
+  "http://127.0.0.1:8000";
 const AUTO_REFRESH_MS = 2500;
 const LEASE_COUNTDOWN_SECONDS = 25;
 
@@ -63,6 +65,13 @@ const STATUS_BADGE: Record<AgentStatus, BadgeProps["variant"]> = {
   FLAGGED: "warning",
   KILLED: "destructive",
 };
+
+function apiHint(): string {
+  if (API_BASE.trim()) {
+    return `Check backend availability at ${API_BASE}.`;
+  }
+  return "Set VITE_COLONY_API_BASE to your backend URL (for example http://127.0.0.1:8000).";
+}
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -78,12 +87,16 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       body = JSON.parse(text);
     } catch {
-      body = {};
+      throw new Error(`Invalid JSON from ${path}. ${apiHint()}`);
     }
   }
 
   if (!response.ok) {
     throw new Error((body as { detail?: string }).detail || `HTTP ${response.status}`);
+  }
+
+  if (typeof body !== "object" || body === null) {
+    throw new Error(`Unexpected payload from ${path}. ${apiHint()}`);
   }
 
   return body as T;
@@ -117,8 +130,8 @@ function eventHeadline(event: ColonyEvent): string {
 }
 
 function toneClass(tone: StatusTone): string {
-  if (tone === "ok") return "text-emerald-700";
-  if (tone === "error") return "text-red-700";
+  if (tone === "ok") return "text-emerald-700/85";
+  if (tone === "error") return "text-rose-700/90";
   return "text-muted-foreground";
 }
 
@@ -128,6 +141,7 @@ function errorMessage(error: unknown): string {
 }
 
 export default function App(): JSX.Element {
+  const apiBaseConfigured = API_BASE.trim().length > 0;
   const [spawnBalance, setSpawnBalance] = useState("2.0");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [leaseCountdown, setLeaseCountdown] = useState(LEASE_COUNTDOWN_SECONDS);
@@ -170,20 +184,29 @@ export default function App(): JSX.Element {
   }, [agents, ledger]);
 
   const refreshState = useCallback(async () => {
-    const result = await api<ColonyStateResponse>("/colony/state");
-    setAgents(result.agents || []);
-    setLedger(result.ledger || []);
+    const result = await api<Partial<ColonyStateResponse>>("/colony/state");
+    const agentsPayload = result.agents;
+    const ledgerPayload = result.ledger;
+    if (!Array.isArray(agentsPayload) || !Array.isArray(ledgerPayload)) {
+      throw new Error(`Invalid colony state response. ${apiHint()}`);
+    }
+
+    setAgents(agentsPayload);
+    setLedger(ledgerPayload);
     setSelectedAgentId((current) => {
-      if (current && result.agents.some((agent) => agent.agent_id === current)) {
+      if (current && agentsPayload.some((agent) => agent.agent_id === current)) {
         return current;
       }
-      return result.agents[0]?.agent_id ?? null;
+      return agentsPayload[0]?.agent_id ?? null;
     });
   }, []);
 
   const refreshEvents = useCallback(async () => {
-    const result = await api<ColonyEventsResponse>("/colony/events?limit=24");
-    setEvents(result.events || []);
+    const result = await api<Partial<ColonyEventsResponse>>("/colony/events?limit=24");
+    if (!Array.isArray(result.events)) {
+      throw new Error(`Invalid events response. ${apiHint()}`);
+    }
+    setEvents(result.events);
   }, []);
 
   const refreshAll = useCallback(async () => {
@@ -248,12 +271,12 @@ export default function App(): JSX.Element {
   const selectedLedger = selectedAgent ? ledgerByAgentId.get(selectedAgent.agent_id) : undefined;
 
   return (
-    <div className="relative min-h-screen pb-24 text-foreground">
-      <header className="border-b border-border/70 bg-background/70 backdrop-blur">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-8">
-            <p className="font-display text-3xl">Colony Arena</p>
-            <nav className="hidden items-center gap-5 text-xs uppercase tracking-[0.18em] text-muted-foreground md:flex">
+    <div className="relative min-h-screen pb-24 font-ui text-foreground">
+      <header className="border-b border-border/80 bg-background/72 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-5">
+          <div className="flex items-center gap-7">
+            <p className="font-display text-[2.15rem] leading-none text-foreground/95">Colony Arena</p>
+            <nav className="hidden items-center gap-5 text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground md:flex">
               <span>Sandboxes</span>
               <span>Logs</span>
               <span>Protocol</span>
@@ -261,11 +284,11 @@ export default function App(): JSX.Element {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Search className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="rounded-full border-border/80">
+              <Search className="h-3.5 w-3.5" />
               <span className="sr-only">Search</span>
             </Button>
-            <Badge variant="outline" className="tracking-[0.18em]">
+            <Badge variant="outline" className="font-code text-[8px] tracking-[0.18em]">
               node_01_live
             </Badge>
           </div>
@@ -277,19 +300,21 @@ export default function App(): JSX.Element {
           <Card className="noise-panel">
             <CardHeader className="pb-3">
               <CardDescription>Network Value</CardDescription>
-              <CardTitle className="font-display text-4xl">{formatCurrency(metrics.totalBalance)}</CardTitle>
+              <CardTitle className="text-[3.1rem]">{formatCurrency(metrics.totalBalance)}</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <p className="text-xs uppercase tracking-[0.18em] text-emerald-700">+{metrics.totalMargin.toFixed(2)} margin</p>
+              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-emerald-700/85">
+                +{metrics.totalMargin.toFixed(2)} margin
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Live Agents</CardDescription>
-              <CardTitle className="font-display text-4xl">{metrics.total.toLocaleString()}</CardTitle>
+              <CardTitle className="text-[3.1rem]">{metrics.total.toLocaleString()}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 pt-0 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+            <CardContent className="space-y-3 pt-0 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span>Active</span>
@@ -304,7 +329,7 @@ export default function App(): JSX.Element {
                 </div>
                 <Progress
                   value={normalize((metrics.killed / Math.max(metrics.total, 1)) * 100)}
-                  className="[&>div]:bg-red-400"
+                  className="[&>div]:bg-rose-400/75"
                 />
               </div>
             </CardContent>
@@ -316,20 +341,32 @@ export default function App(): JSX.Element {
             </CardHeader>
             <CardContent className="max-h-[390px] space-y-3 overflow-auto pt-0">
               {events.slice(0, 8).map((event) => (
-                <div key={event.seq} className="space-y-1 rounded-2xl border border-border/60 p-3">
-                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                <div key={event.seq} className="space-y-1 rounded-[1.1rem] border border-border/65 bg-background/50 p-3">
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                     <span>{formatClock(event.ts)}</span>
                     <span>#{event.seq}</span>
                   </div>
-                  <p className="text-sm leading-relaxed text-foreground/90">{eventHeadline(event)}</p>
+                  <p className="text-[13px] leading-relaxed text-foreground/85">{eventHeadline(event)}</p>
                 </div>
               ))}
-              {!events.length ? <p className="text-sm text-muted-foreground">No events yet.</p> : null}
+              {!events.length ? <p className="text-[13px] text-muted-foreground">No events yet.</p> : null}
             </CardContent>
           </Card>
         </aside>
 
         <section className="space-y-4">
+          {!apiBaseConfigured ? (
+            <Card className="border-amber-200/80 bg-amber-50/55">
+              <CardContent className="space-y-2 pt-5">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-amber-800">Backend not configured</p>
+                <p className="text-[13px] text-amber-900">
+                  Set <code className="font-code">VITE_COLONY_API_BASE</code> to your teammate&apos;s Python server URL.
+                </p>
+                <p className="font-code text-[11px] text-amber-800/90">Example: VITE_COLONY_API_BASE=http://127.0.0.1:8000 pnpm dev</p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-wrap items-center gap-3">
@@ -337,7 +374,7 @@ export default function App(): JSX.Element {
                   type="number"
                   step="0.1"
                   min="0"
-                  className="w-[140px]"
+                  className="font-code w-[132px]"
                   value={spawnBalance}
                   onChange={(event) => setSpawnBalance(event.target.value)}
                 />
@@ -384,40 +421,40 @@ export default function App(): JSX.Element {
                   Refresh
                 </Button>
 
-                <div className="ml-auto flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                <div className="ml-auto flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Auto refresh
                   <Switch checked={autoRefresh} onCheckedChange={setAutoRefresh} />
                 </div>
               </div>
 
-              <p className={cn("mt-3 text-xs uppercase tracking-[0.15em]", toneClass(statusTone))}>{statusText}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.15em] text-muted-foreground">API version: {version}</p>
+              <p className={cn("mt-3 text-[10px] uppercase tracking-[0.2em]", toneClass(statusTone))}>{statusText}</p>
+              <p className="mt-1 font-code text-[10px] uppercase tracking-[0.2em] text-muted-foreground">API version: {version}</p>
             </CardContent>
           </Card>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Alive</p>
-                <p className="font-display text-4xl">{metrics.active}</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Alive</p>
+                <p className="font-display text-[3rem] leading-none">{metrics.active}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Terminated</p>
-                <p className="font-display text-4xl">{metrics.killed}</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Terminated</p>
+                <p className="font-display text-[3rem] leading-none">{metrics.killed}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Total Profit</p>
-                <p className="font-display text-4xl">{formatCurrency(metrics.totalMargin)}</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Total Profit</p>
+                <p className="font-display text-[3rem] leading-none">{formatCurrency(metrics.totalMargin)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Next Lease Tick</p>
-                <p className="font-display text-4xl">{leaseCountdown}s</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Next Lease Tick</p>
+                <p className="font-display text-[3rem] leading-none">{leaseCountdown}s</p>
               </CardContent>
             </Card>
           </div>
@@ -425,8 +462,8 @@ export default function App(): JSX.Element {
           <div>
             <div className="mb-3 flex items-end justify-between">
               <div>
-                <h1 className="font-display text-4xl">Arena Monitor</h1>
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                <h1 className="font-display text-[3.2rem] leading-none">Arena Monitor</h1>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Active Instances / cycle {events[0]?.seq ?? 0}
                 </p>
               </div>
@@ -436,6 +473,20 @@ export default function App(): JSX.Element {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
+              {!agents.length ? (
+                <Card className="border-dashed border-border/80 md:col-span-2">
+                  <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-center">
+                    <div className="rounded-full border border-border/80 p-3 text-muted-foreground">
+                      <SquareTerminal className="h-5 w-5" />
+                    </div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">No telemetry yet</p>
+                    <p className="max-w-lg text-[13px] text-muted-foreground">
+                      {statusTone === "error" ? statusText : "Waiting for backend data. Spawn controls are still available."}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : null}
+
               {agents.map((agent, index) => {
                 const ledgerForAgent = ledgerByAgentId.get(agent.agent_id);
                 const healthPct = normalize(agent.healthy ? agent.quality_rolling * 100 : 6);
@@ -448,7 +499,7 @@ export default function App(): JSX.Element {
                     className={cn(
                       "cursor-pointer transition hover:-translate-y-0.5",
                       selectedAgent?.agent_id === agent.agent_id
-                        ? "border-primary/60 shadow-[0_12px_30px_rgba(49,84,96,0.22)]"
+                        ? "border-primary/55 shadow-[0_10px_24px_rgba(84,101,88,0.14)]"
                         : "",
                     )}
                     onClick={() => setSelectedAgentId(agent.agent_id)}
@@ -457,10 +508,12 @@ export default function App(): JSX.Element {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <CardDescription>Instance {String(index + 1).padStart(2, "0")}</CardDescription>
-                          <CardTitle className="mt-2 text-2xl font-display">
+                          <CardTitle className="mt-2 text-[2.1rem] leading-none">
                             {AGENT_NAMES[index % AGENT_NAMES.length]}
                           </CardTitle>
-                          <p className="mt-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{agent.agent_id}</p>
+                          <p className="font-code mt-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                            {agent.agent_id}
+                          </p>
                         </div>
                         <Badge variant={STATUS_BADGE[agent.status]}>{agent.status.toLowerCase()}</Badge>
                       </div>
@@ -468,30 +521,32 @@ export default function App(): JSX.Element {
 
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                           <span>Health / Compute</span>
                           <span>{healthPct.toFixed(0)}%</span>
                         </div>
-                        <Progress value={healthPct} className="[&>div]:bg-emerald-500" />
-                        <Progress value={computePct} className="[&>div]:bg-primary" />
+                        <Progress value={healthPct} className="[&>div]:bg-emerald-600/55" />
+                        <Progress value={computePct} className="[&>div]:bg-primary/75" />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3 text-[11px] uppercase tracking-[0.13em] text-muted-foreground">
+                      <div className="grid grid-cols-3 gap-3 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                         <div>
                           <p>Balance</p>
-                          <p className="mt-1 text-sm font-semibold text-foreground">
+                          <p className="mt-1 font-display text-[1.55rem] leading-none text-foreground">
                             {formatCurrency(ledgerForAgent?.balance ?? 0)}
                           </p>
                         </div>
                         <div>
                           <p>Margin</p>
-                          <p className="mt-1 text-sm font-semibold text-foreground">
+                          <p className="mt-1 font-display text-[1.55rem] leading-none text-foreground">
                             {(ledgerForAgent?.net_margin_24h ?? 0).toFixed(2)}
                           </p>
                         </div>
                         <div>
                           <p>Generation</p>
-                          <p className="mt-1 text-sm font-semibold text-foreground">{agent.parent_id ? "Gen 2" : "Gen 1"}</p>
+                          <p className="mt-1 font-display text-[1.55rem] leading-none text-foreground">
+                            {agent.parent_id ? "Gen 2" : "Gen 1"}
+                          </p>
                         </div>
                       </div>
 
@@ -586,7 +641,7 @@ export default function App(): JSX.Element {
                   <div className="rounded-full border border-border/80 p-3 text-muted-foreground">
                     <Sparkles className="h-5 w-5" />
                   </div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Spawn Instance</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Spawn Instance</p>
                   <Button
                     onClick={() => {
                       void runAction(
@@ -611,13 +666,13 @@ export default function App(): JSX.Element {
           <Card>
             <CardHeader>
               <CardDescription>Selected Agent Dynamics</CardDescription>
-              <CardTitle className="font-display text-5xl">
+              <CardTitle className="text-[3.25rem] leading-none">
                 {selectedAgent ? `Lineage Analysis of ${selectedAgent.agent_id}` : "Lineage Analysis Pending"}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
               <div className="space-y-4">
-                <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                <p className="max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
                   {selectedAgent
                     ? `Instance ${selectedAgent.agent_id} is currently ${selectedAgent.status.toLowerCase()} with quality trend at ${(selectedAgent.quality_rolling * 100).toFixed(1)}%. ${selectedAgent.parent_id ? `Derived from ${selectedAgent.parent_id}.` : "Primary lineage root in this run."}`
                     : "Spawn an agent to inspect lineage, quality trend, and replication behavior."}
@@ -630,22 +685,22 @@ export default function App(): JSX.Element {
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Agility</p>
-                  <p className="mt-1 font-display text-3xl">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Agility</p>
+                  <p className="mt-1 font-display text-[2.1rem] leading-none">
                     {selectedAgent ? Math.round(selectedAgent.quality_rolling * 100) : 0}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Resilience</p>
-                  <p className="mt-1 font-display text-3xl">{selectedAgent?.healthy ? "94" : "21"}</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Resilience</p>
+                  <p className="mt-1 font-display text-[2.1rem] leading-none">{selectedAgent?.healthy ? "94" : "21"}</p>
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Complexity</p>
-                  <p className="mt-1 font-display text-3xl">{(selectedLedger?.rent_per_tick ?? 0).toFixed(2)}</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Complexity</p>
+                  <p className="mt-1 font-display text-[2.1rem] leading-none">{(selectedLedger?.rent_per_tick ?? 0).toFixed(2)}</p>
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Uptime</p>
-                  <p className="mt-1 font-display text-3xl">{selectedAgent?.status === "KILLED" ? "0%" : "99%"}</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Uptime</p>
+                  <p className="mt-1 font-display text-[2.1rem] leading-none">{selectedAgent?.status === "KILLED" ? "0%" : "99%"}</p>
                 </div>
               </div>
             </CardContent>
@@ -656,7 +711,7 @@ export default function App(): JSX.Element {
       <footer className="fixed inset-x-0 bottom-4 px-6">
         <div className="mx-auto max-w-[1400px]">
           <Card className="rounded-full bg-card/90">
-            <CardContent className="flex flex-wrap items-center gap-3 px-5 py-3 text-xs uppercase tracking-[0.16em] text-muted-foreground sm:justify-between">
+            <CardContent className="flex flex-wrap items-center gap-3 px-5 py-3 text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:justify-between">
               <div className="flex items-center gap-2">
                 <SquareTerminal className="h-4 w-4" />
                 <span>Reserve {metrics.totalBalance.toFixed(2)}</span>
