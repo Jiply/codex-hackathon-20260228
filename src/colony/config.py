@@ -9,6 +9,7 @@ API_LABEL = os.getenv("MODAL_API_LABEL", "mortal-replicator-api")
 APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 
 DATA_ROOT = "/agent-data"
+STORE_DIR = os.getenv("STORE_DIR", "data")
 
 DEFAULT_RENT_PER_TICK = float(os.getenv("DEFAULT_RENT_PER_TICK", "0.5"))
 DEFAULT_SAFETY_BUFFER = float(os.getenv("DEFAULT_SAFETY_BUFFER", "0.3"))

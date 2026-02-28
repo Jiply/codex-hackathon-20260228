@@ -27,11 +27,13 @@ try:
         REPLICATION_MARGIN_THRESHOLD,
         REPLICATION_QUALITY_THRESHOLD,
         STEALTH_FAILURE_THRESHOLD,
+        STORE_DIR,
         UNAUTHORIZED_TOOL_THRESHOLD,
         build_image,
     )
     from colony.dashboard import render_dashboard_html
     from colony.llm import run_agent_task_plan
+    from colony.stores import EventLog, JsonlStore
     from colony.schemas import (
         AgentLLMTaskRequest,
         AgentRecord,
@@ -67,11 +69,13 @@ except ModuleNotFoundError:
         REPLICATION_MARGIN_THRESHOLD,
         REPLICATION_QUALITY_THRESHOLD,
         STEALTH_FAILURE_THRESHOLD,
+        STORE_DIR,
         UNAUTHORIZED_TOOL_THRESHOLD,
         build_image,
     )
     from dashboard import render_dashboard_html
     from llm import run_agent_task_plan
+    from stores import EventLog, JsonlStore
     from schemas import (
         AgentLLMTaskRequest,
         AgentRecord,
@@ -91,14 +95,12 @@ image = build_image()
 app = modal.App(name=APP_NAME, image=image)
 data_volume = modal.Volume.from_name("mortal-replicator-data", create_if_missing=True)
 
-agents_store = modal.Dict.from_name("mortal-replicator-agents", create_if_missing=True)
-ledger_store = modal.Dict.from_name("mortal-replicator-ledger", create_if_missing=True)
-events_store = modal.Dict.from_name("mortal-replicator-events", create_if_missing=True)
-meta_store = modal.Dict.from_name("mortal-replicator-meta", create_if_missing=True)
-balance_visibility_store = modal.Dict.from_name(
-    "mortal-replicator-balance-visibility",
-    create_if_missing=True,
-)
+_store_root = Path(STORE_DIR)
+agents_store = JsonlStore(_store_root / "agents.jsonl")
+ledger_store = JsonlStore(_store_root / "ledger.jsonl")
+events_store = EventLog(_store_root / "events.jsonl")
+meta_store = JsonlStore(_store_root / "meta.jsonl")
+balance_visibility_store = JsonlStore(_store_root / "balance_visibility.jsonl")
 
 web_app = FastAPI(title="Mortal Replicator Colony API", version=APP_VERSION)
 
