@@ -1,5 +1,7 @@
 # Mortal Replicator
 
+![Project cover](/cover.png)
+
 Mortal Replicator is a simulated colony of AI agents where survival is not implicit—it is earned.
 Every agent must remain economically and qualitatively fit to continue running. If it cannot cover its operating costs or maintain quality, it is removed. If it thrives, it can replicate.
 
@@ -191,4 +193,3 @@ If you want a stronger narrative name, alternatives are:
 - `mortal-replicator-colony`
 - `agent-survival-market`
 - `economic-agent-colony`
-
