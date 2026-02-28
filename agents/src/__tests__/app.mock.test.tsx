@@ -57,7 +57,7 @@ describe("App mock mode integration", () => {
     render(<App />);
 
     expect(await screen.findByText("Agent Capitalism")).toBeInTheDocument();
-    expect(await screen.findByText(/mock-seeded|unavailable|unknown/i)).toBeInTheDocument();
+    expect(await screen.findByText(/mock-seeded|--|unknown/i)).toBeInTheDocument();
     expect(screen.getByTestId("mock-react-flow")).toBeInTheDocument();
   });
 
@@ -98,9 +98,9 @@ describe("App mock mode integration", () => {
   it("loads additional sidebar logs on scroll", async () => {
     render(<App />);
 
-    await screen.findByText(/streamed records/i);
-    const initialIds = screen.getAllByText(/^log-/i);
+    const summary = await screen.findByText(/streamed records/i);
     const container = getLogScrollContainer();
+    const initialCount = Number((summary.textContent || "0").split(" ")[0] || "0");
 
     Object.defineProperty(container, "scrollHeight", { configurable: true, value: 1000 });
     Object.defineProperty(container, "clientHeight", { configurable: true, value: 200 });
@@ -109,8 +109,9 @@ describe("App mock mode integration", () => {
     fireEvent.scroll(container);
 
     await waitFor(() => {
-      const nextIds = screen.getAllByText(/^log-/i);
-      expect(nextIds.length).toBeGreaterThan(initialIds.length);
+      const nextSummary = screen.getByText(/streamed records/i);
+      const nextCount = Number((nextSummary.textContent || "0").split(" ")[0] || "0");
+      expect(nextCount).toBeGreaterThan(initialCount);
     });
   });
 });

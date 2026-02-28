@@ -155,4 +155,23 @@ describe("mock endpoint contracts", () => {
     expect(second.status).toBe(200);
     expect(second.body.agent.status).toBe("KILLED");
   });
+
+  it("supports fault injection: forced status and malformed JSON", async () => {
+    uninstallMockFetch();
+    installMockFetch({
+      scenario: "seeded",
+      faults: {
+        "GET /version": { status: 503, detail: "forced outage" },
+        "GET /colony/logs": { malformedJson: true },
+      },
+    });
+
+    const forced = await request("/version");
+    expect(forced.status).toBe(503);
+    expect(forced.body.detail).toBe("forced outage");
+
+    const raw = await fetch("http://127.0.0.1:8000/colony/logs?limit=8");
+    expect(raw.status).toBe(200);
+    await expect(raw.json()).rejects.toBeTruthy();
+  });
 });

@@ -1,0 +1,45 @@
+name: Frontend Mock Tests
+
+on:
+  push:
+    paths:
+      - "agents/**"
+      - ".github/workflows/frontend-mock-tests.yml"
+  pull_request:
+    paths:
+      - "agents/**"
+      - ".github/workflows/frontend-mock-tests.yml"
+
+jobs:
+  frontend-mock-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agents
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: agents/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run mock tests
+        env:
+          VITE_USE_MOCKS: "true"
+          VITE_MOCK_SCENARIO: "seeded"
+        run: pnpm test

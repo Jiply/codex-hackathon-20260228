@@ -32,10 +32,10 @@ describe("App mock error UX", () => {
     uninstallMockFetch();
   });
 
-  it("shows fallback log error banner and unavailable version", async () => {
+  it("shows local stream banner and API placeholder version", async () => {
     render(<App />);
 
-    expect(await screen.findByText(/local mock stream/i)).toBeInTheDocument();
-    expect(await screen.findByText(/API unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByText(/local stream/i)).toBeInTheDocument();
+    expect(await screen.findByText(/API --/i)).toBeInTheDocument();
   });
 });
