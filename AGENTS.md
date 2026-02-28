@@ -1,0 +1,2 @@
+- Do not use cards in UI, gradients, or neon colors.
+- Refer to DESIGN.md for user interfaces and visuals.
